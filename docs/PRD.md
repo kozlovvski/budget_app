@@ -3581,7 +3581,7 @@ As the household, we want our bank data protected in transit and at rest, so tha
 - Developer check: a copy of the stored household data, and of a backup, opened without the app shows no readable transaction descriptions, amounts, counterparty names or account numbers.
 - Bank-access secrets, meaning whatever the app uses to fetch bank data, including each member's Enable Banking registration details, never appear in the UI, exports or logs. Member check for the UI and exports; developer check for logs.
 - Developer check: a full export, and a backup restored on a fresh installation, cannot be used to fetch bank data without the separately held bank-access secrets.
-- Developer check: after running the main journeys with known test values, searching the diagnostic logs for those descriptions, amounts, counterparty names, account numbers, sign-in links and codes finds nothing.
+- Developer check: after running the main journeys with known test values, searching the diagnostic logs, and the data held by the diagnostics service (NFR-03), for those descriptions, amounts, counterparty names, account numbers, sign-in links and codes finds nothing.
 - Everything the app held to fetch a member's bank data is deleted when they leave, or 7 days after they are removed unless an Owner restores them (HH-07).
 
 ### NFR-03 Privacy: household-only visibility and data rights · Must · M1
@@ -3592,7 +3592,8 @@ As a member, I want our data seen only by our household and to control it, so th
   - Enable Banking, as needed to fetch bank data;
   - the email service, which receives only an email address and an invite or sign-in link;
   - a cloud hosting provider (§10 question 6). It holds the data only in encrypted form (NFR-02). The provider is chosen in technical design.
-- Developer check: while the main journeys run, the app contacts no other outside party. In particular there is no third-party analytics, advertising, tracking, fonts or scripts loaded from elsewhere. Metrics are computed in-app.
+- One more outside party receives **no household data**: a diagnostics service, which gets only scrubbed technical data (errors, traces, performance metrics and page-load timings). It never receives transaction or account data, member names or emails, sign-in links or codes, request contents, or record IDs in page addresses. It never identifies a member, records sessions or follows activity across pages or visits.
+- Developer check: while the main journeys run, the app contacts no other outside party. In particular there is no third-party analytics, advertising, tracking, fonts or scripts loaded from elsewhere; the diagnostics service's browser script is bundled with the app. Product metrics (section 6) are computed in-app.
 - Rights map to features:
 
 | Right | Where |
@@ -3603,7 +3604,7 @@ As a member, I want our data seen only by our household and to control it, so th
 | Erasure of everything | SET-09 |
 
 - Requests made inside the app complete within the timings in HH-08 and SET-09. Both are well within the one-month limit in [GDPR Art. 12(3)](https://gdpr-info.eu/art-12-gdpr/).
-**Notes:** [GDPR Recital 18](https://gdpr-info.eu/recitals/no-18/): the Regulation doesn't apply to "a purely personal or household activity" but "applies to controllers or processors which provide the means" for it. So a hosting provider stays bound by GDPR in its own role whatever the household's status. Not legal advice.
+**Notes:** [GDPR Recital 18](https://gdpr-info.eu/recitals/no-18/): the Regulation doesn't apply to "a purely personal or household activity" but "applies to controllers or processors which provide the means" for it. So a hosting provider stays bound by GDPR in its own role whatever the household's status. Not legal advice. The diagnostics service is chosen in technical design. If it can't be kept from tracking sessions, it gets errors only.
 
 ### NFR-04 Audit trail · Must · M1
 As an Owner, I want a record of security and admin events that no member can change, so that we can see who did what if something goes wrong.

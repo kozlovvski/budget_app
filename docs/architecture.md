@@ -30,7 +30,7 @@ The high-level technical design for the budget app. `docs/PRD.md` says *what* th
 | Encryption (NFR-02) | Encrypted volumes and backups, plus app-level envelope encryption for Enable Banking secrets |
 | Hosting (NFR-03, PRD §10 question 6) | Oracle Cloud Infrastructure, region eu-frankfurt-1: the developer's Kubernetes cluster, deployed with ArgoCD |
 | Tenancy | One household. The PRD non-goal of multiple households stands; the data model only avoids closing that door |
-| Observability | Grafana Cloud, with Grafana Faro in the browser, both scrubbed. **Needs a PRD change first** (§14) |
+| Observability | Grafana Cloud, with Grafana Faro in the browser, both scrubbed (PRD NFR-03) |
 | Machine-learning categoriser | A separate Python service, **Later** (PRD §10 question 4), behind a port that exists from M2 |
 
 ## 3. System overview
@@ -267,7 +267,7 @@ apps/api/src/
 
 ## 10. Observability
 
-**Not switched on until NFR-03 is amended (§14).** Until then, nothing is sent to Grafana Cloud.
+NFR-03 allows a diagnostics service that receives scrubbed technical data only (§14).
 
 - **Backend:** OpenTelemetry to the cluster's collector, then Grafana Cloud. Span attributes are allow-listed. No request bodies, no query strings, parameterised SQL only.
 - **Browser:** Grafana Faro, bundled from npm, limited to errors and web vitals. `beforeSend` strips query strings and IDs from URLs and replaces message text that could contain bank data. No console capture, user identity, session replay, action tracking or persistent session.
@@ -316,5 +316,5 @@ None of these block M1's walking skeleton.
 
 Per "PRD first", these PRD edits come before the work that depends on them:
 
-- **NFR-03:** add Grafana Cloud as a receiver of scrubbed diagnostic data only (errors, traces, metrics and web vitals, with no household data), and allow the Faro script bundled with the app. Today NFR-03 rules out "tracking" and says "Metrics are computed in-app". Extend the NFR-02 log-search check to Grafana Cloud.
+- **NFR-03 (applied):** a diagnostics service may receive scrubbed technical data only (errors, traces, metrics and web vitals, with no household data), and its browser script is bundled with the app. The NFR-02 log-search check covers it. The PRD names no provider; here it is Grafana Cloud with Faro.
 - **Later, for MCP:** see §13.
