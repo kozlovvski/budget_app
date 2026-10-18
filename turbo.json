@@ -1,0 +1,34 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build", "^generate"],
+      "outputs": ["dist/**", ".output/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^generate", "generate"]
+    },
+    "test": {
+      "dependsOn": ["^generate", "generate"]
+    },
+    "test:e2e": {},
+    "dev": {
+      "dependsOn": ["^generate"],
+      "persistent": true,
+      "cache": false
+    },
+    "@budget/api#dev": {
+      "dependsOn": ["openapi"],
+      "persistent": true,
+      "cache": false
+    },
+    "openapi": {
+      "dependsOn": ["build"],
+      "outputs": ["openapi.json"]
+    },
+    "generate": {
+      "dependsOn": ["^openapi"],
+      "outputs": ["src/generated/**"]
+    }
+  }
+}
