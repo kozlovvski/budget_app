@@ -317,6 +317,7 @@ None of these block M1's walking skeleton.
 - **MCP is a PRD change when it's scheduled.** It is effectively "AI Q&A", which the PRD lists as Later. A hosted LLM client would be a new outside party (NFR-03), and the NFR-01 notes assume there is no public API.
 - **Exchange-rate source** (PRD open question on ECB or NBP). Fetching public rates sends no household data, so it probably needs no NFR-03 change. Confirm when the source is chosen.
 - **Faro's session tracking.** If it can't be switched off completely, send errors only or drop Faro.
+- **Diagnostic data retention.** NFR-11 keeps diagnostic logs for 30 days, and NFR-02's log search covers the diagnostics service (NFR-03). Grafana Cloud's retention for logs, traces and Faro data must fit within that.
 - **Email provider:** OCI Email Delivery or another EU provider.
 - **Event publisher edge cases, to test in the walking skeleton:** whether a bare `em.flush()` outside `em.transactional()` fires the transaction hooks, and whether nested transactions (savepoints) fire `afterTransactionCommit` before the outer commit. The publisher must send only on the outermost commit.
 
