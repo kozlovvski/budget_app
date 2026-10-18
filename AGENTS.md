@@ -60,7 +60,7 @@ A private budgeting app for one household: it pulls in the household's bank data
 Run from the repo root (Node 24, pnpm via `packageManager`):
 - `pnpm install`
 - `pnpm dev`: the api on port 3001 and the web app on 3000, which proxies `/api` to the api. Open `localhost:3000`.
-- `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm test:e2e`: Turborepo runs each across the workspaces, building the api, exporting `openapi.json` and generating `@budget/api-client` first where needed.
+- `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm test:cov` (unit tests with the coverage thresholds CI enforces), `pnpm test:e2e`: Turborepo runs each across the workspaces, building the api, exporting `openapi.json` and generating `@budget/api-client` first where needed.
 - `pnpm lint` (oxlint, oxfmt check, dependency-cruiser boundary rules) and `pnpm format`.
 - Worker: `pnpm --filter @budget/api dev:worker`.
 - CLI (after `pnpm build`): `pnpm --filter @budget/api exec node dist/main.cli.js --help`. `pnpm --filter @budget/api openapi` writes `apps/api/openapi.json`.
