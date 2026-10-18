@@ -81,7 +81,7 @@ deploy/               kustomize base and overlay, ArgoCD Application
 - Node 24 LTS (`.nvmrc` and `engines`). pnpm is pinned with the root `packageManager` field, and Turborepo runs the tasks.
 - TypeScript `~6.0` across the workspace, because Nest's CLI and swagger allow nothing newer. Each workspace extends one root `tsconfig.base.json` and adds only what differs.
 - oxlint (with type-aware rules) and oxfmt lint and format the whole repo, and dependency-cruiser checks the boundaries in §5.1. All three run in `pnpm lint` and in CI.
-- Vitest runs unit and end-to-end tests.
+- Vitest runs unit and end-to-end tests. `pnpm test` fails when unit tests cover less than 80% of a workspace's lines, statements or functions. Bootstrap, module wiring and generated code are left out of the count. The api has no branch threshold, because decorator metadata adds branches that no test can reach. CI is a required check on `main`, so the threshold blocks merges.
 - The api's CLI entrypoint exports the OpenAPI document (`openapi` command), and orval generates `packages/api-client` from it. Neither the document nor the generated client is committed; Turborepo regenerates them before any task that needs them.
 
 ## 5. Backend
