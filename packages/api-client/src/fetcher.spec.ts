@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetcher } from './fetcher';
+import { fetcher, shouldRetry } from './fetcher';
 
 const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
   Response.json({ status: 'ok' }),
@@ -53,5 +53,17 @@ describe('fetcher', () => {
       status: 502,
       info: '<html>Bad Gateway</html>',
     });
+  });
+
+  it('retries only network errors and 5xx, three times, in the browser', () => {
+    const http = (status: number) => Object.assign(new Error(), { status });
+
+    expect(shouldRetry(0, http(503))).toBe(false); // server: no retries
+
+    vi.stubGlobal('window', {});
+    expect(shouldRetry(0, http(503))).toBe(true);
+    expect(shouldRetry(0, new TypeError('fetch failed'))).toBe(true);
+    expect(shouldRetry(0, http(404))).toBe(false);
+    expect(shouldRetry(3, http(503))).toBe(false);
   });
 });
