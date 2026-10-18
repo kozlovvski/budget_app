@@ -71,7 +71,7 @@ Run from the repo root (Node 24, pnpm via `packageManager`):
 **`docs/architecture.md` is the source of truth for how the app is built.** Read it before designing or building anything; change it when a technical decision changes. If it disagrees with the PRD, the PRD wins.
 
 In short:
-- **Stack:** NestJS modular monolith with CQRS, MikroORM v7 on PostgreSQL, BullMQ on Redis; React with TanStack Start and shadcn/ui; Kubernetes on OCI, deployed with ArgoCD.
+- **Stack:** NestJS modular monolith with CQRS, MikroORM v7 on PostgreSQL, BullMQ on Redis; React SPA with TanStack Router and shadcn/ui; Kubernetes on OCI, deployed with ArgoCD.
 - **Patterns:** DDD aggregates only where the logic is hard; a framework-free domain; pure functions for ingestion and counting rules, tested with the PRD's worked examples.
 - **Reads** are computed on request, with no stored projections. Optimise only after a measurement shows the need.
 - **Background work:** events are queued after commit, and every consumer has a sweep that finds work it missed.
