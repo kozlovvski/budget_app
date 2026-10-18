@@ -237,7 +237,7 @@ apps/api/src/
 - **UI:** shadcn/ui and Tailwind. Charts are shadcn charts, and each has a table equivalent (NFR-08). Fonts are self-hosted; nothing is loaded from another origin (NFR-03).
 - **One `<Figure>` component** renders `{ value, markers }`: the number with its markers as text and icon, never colour alone (INS-01, NFR-08).
 - **i18n:** Lingui with ICU messages (Polish plurals included) and a pseudo-locale to catch untranslated text (NFR-13). Numbers, money and dates are formatted with `Intl`.
-- **Text from banks is only ever text.** `dangerouslySetInnerHTML` is banned by lint. A strict Content Security Policy, sent as a header by the static server, sets `script-src 'self'` and `style-src 'self'`, and `connect-src` allows only `'self'` and the Faro collector (NFR-01). The build emits no inline scripts, so nothing needs a per-request value.
+- **Text from banks is only ever text.** `dangerouslySetInnerHTML` is banned by lint. A strict Content Security Policy, sent as a header by the static server, sets `script-src 'self'`, and `connect-src` allows only `'self'` and the Faro collector (NFR-01). The build emits no inline scripts, so nothing needs a per-request value. `style-src` is `'self' 'unsafe-inline'`: Radix injects `<style>` elements for scroll locking and scroll areas, and the scroll-lock one is computed at runtime, so no hash can cover it and a static file has no nonce. React escapes text and lint bans raw HTML, so bank text can't add a style; scripts stay locked to `'self'`.
 
 ## 7. Identity, sessions and security
 
