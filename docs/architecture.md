@@ -77,6 +77,13 @@ deploy/               kustomize base and overlay, ArgoCD Application
 
 `api` and `worker` ship as one image with two Deployments. A shared package is created only when two apps really share something.
 
+**Tooling:**
+- Node 24 LTS (`.nvmrc` and `engines`). pnpm is pinned with the root `packageManager` field, and Turborepo runs the tasks.
+- TypeScript `~6.0` across the workspace, because Nest's CLI and swagger allow nothing newer. Each workspace extends one root `tsconfig.base.json` and adds only what differs.
+- oxlint (with type-aware rules) and oxfmt lint and format the whole repo, and dependency-cruiser checks the boundaries in §5.1. All three run in `pnpm lint` and in CI.
+- Vitest runs unit and end-to-end tests.
+- The api's CLI entrypoint exports the OpenAPI document (`openapi` command), and orval generates `packages/api-client` from it. Neither the document nor the generated client is committed; Turborepo regenerates them before any task that needs them.
+
 ## 5. Backend
 
 ### 5.1 Patterns
@@ -91,6 +98,7 @@ deploy/               kustomize base and overlay, ArgoCD Application
   - Commands load an aggregate, call it and save it.
   - Queries read tables directly and return DTOs. They never load aggregates.
   - The history the PRD asks for is kept in explicit append-only tables: transaction versions and edit history (TXN-03), duplicate decisions (TXN-10), plan history (BUD-16), settle snapshots (BUD-19) and the audit log (NFR-04). Erasure (HH-08) stays an ordinary delete or pseudonymisation, which event sourcing would make hard.
+- **Nest first.** Before writing code in `api`, look in this order: the Nest CLI and schematics, official `@nestjs/*` packages, then libraries the Nest docs recommend (nest-commander, `@mikro-orm/nestjs`). Write custom code only when none of these fits, and keep what Nest generates unless it conflicts with a decision in this document. Two such conflicts are settled: Nest's monorepo mode isn't used, because Turborepo owns the workspace, and generated files are renamed to the §5.3 suffixes.
 - **Functional core, imperative shell.** The ingestion engine, categorisation precedence (CAT-05), the counting rulebook (BUD-02, INS-02), the flex formula and the freshness and marker rules are pure functions. Handlers load data, call them and save the result. The PRD's must-behave examples become their tests.
 
 ### 5.2 Modules

@@ -2,7 +2,7 @@
 
 A private budgeting app for one household: it pulls in the household's bank data, categorises spending, runs a flex budget and shows where the money goes.
 
-**Status:** requirements are drafted and the high-level technical design is agreed (`docs/architecture.md`); there is no application code yet. The repo uses OpenSpec (`openspec/`) for change proposals.
+**Status:** requirements are drafted and the high-level technical design is agreed (`docs/architecture.md`). The monorepo skeleton exists (`apps/api`, `apps/web`, `packages/api-client`) with a health endpoint wired end to end, but no product features yet. The repo uses OpenSpec (`openspec/`) for change proposals.
 
 ## Where to start
 
@@ -54,6 +54,17 @@ A private budgeting app for one household: it pulls in the household's bank data
 - **PRD style:** British spelling, plain words, and exact UI wording in "quotes".
 - **No personal data in the repo** (the repo may become public): no real transactions, account numbers or bank exports. Spike samples are anonymised (Appendix B, Data handling).
 - **Ask before creating outside-facing things:** a GitHub remote, Project, issues, or emails to Enable Banking.
+
+## Commands
+
+Run from the repo root (Node 24, pnpm via `packageManager`):
+- `pnpm install`
+- `pnpm dev`: the api on port 3001 and the web app on 3000, which proxies `/api` to the api. Open `localhost:3000`.
+- `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm test:e2e`: Turborepo runs each across the workspaces, building the api, exporting `openapi.json` and generating `@budget/api-client` first where needed.
+- `pnpm lint` (oxlint, oxfmt check, dependency-cruiser boundary rules) and `pnpm format`.
+- Worker: `pnpm --filter @budget/api dev:worker`.
+- CLI (after `pnpm build`): `pnpm --filter @budget/api exec node dist/main.cli.js --help`. `pnpm --filter @budget/api openapi` writes `apps/api/openapi.json`.
+- Generating api code: `pnpm --filter @budget/api exec nest g <schematic> <name> --flat --no-spec`, then rename the file to the §5.3 suffixes (for example `health.controller.ts` becomes `health.http.controller.ts`).
 
 ## Technical design
 
