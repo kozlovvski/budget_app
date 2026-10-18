@@ -39,4 +39,19 @@ describe('fetcher', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/api/health', { method: 'GET' });
   });
+
+  it('rejects on 4xx/5xx with the status and the body', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ status: 'error' }, { status: 503 }));
+    await expect(fetcher('/api/health')).rejects.toMatchObject({
+      status: 503,
+      info: { status: 'error' },
+    });
+
+    // An HTML error page from a proxy must not surface as a JSON SyntaxError.
+    fetchMock.mockResolvedValueOnce(new Response('<html>Bad Gateway</html>', { status: 502 }));
+    await expect(fetcher('/api/health')).rejects.toMatchObject({
+      status: 502,
+      info: '<html>Bad Gateway</html>',
+    });
+  });
 });

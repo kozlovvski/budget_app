@@ -14,6 +14,8 @@ export default defineConfig({
         mutator: { path: 'src/fetcher.ts', name: 'fetcher' },
         // Route loaders prefetch and components read with useSuspenseQuery.
         query: { useSuspenseQuery: true },
+        // The fetcher throws on 4xx/5xx, so the generated return types hold only the success responses.
+        fetch: { forceSuccessResponse: true },
       },
     },
   },

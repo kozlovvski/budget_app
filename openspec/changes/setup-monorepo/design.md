@@ -103,7 +103,7 @@ A "just-in-time" internal package: `exports` points at TypeScript source, and th
 - `react-query` with fetch: typed functions, query options and hooks;
 - `zod`: schemas for TanStack Form later (§6).
 
-A hand-written mutator, `src/fetcher.ts`, picks the base URL. On the server (`typeof window === "undefined"`) it uses `process.env.API_URL`, defaulting to `http://localhost:3001`. In the browser it uses the same origin. It is the only non-generated logic, and it gets a Vitest test.
+A hand-written mutator, `src/fetcher.ts`, picks the base URL. On the server (`typeof window === "undefined"`) it uses `process.env.API_URL`, defaulting to `http://localhost:3001`. In the browser it uses the same origin. On a 4xx or 5xx it throws an `Error` with `status` and the parsed body as `info`, the shape orval's own fetch client uses, so TanStack Query enters its error state; `forceSuccessResponse` narrows the generated return types to match. It is the only non-generated logic, and it gets a Vitest test.
 
 ### `apps/web`: TanStack Start with Query and shadcn
 - TanStack Start on Vite 8 with Tailwind v4 (`@tailwindcss/vite`). Run `shadcn init` (`components.json`, `cn` utility, theme tokens) without adding any components.
