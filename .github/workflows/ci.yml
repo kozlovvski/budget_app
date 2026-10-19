@@ -25,4 +25,4 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
-      - run: pnpm turbo run typecheck test test:e2e build
+      - run: pnpm turbo run typecheck test:cov test:e2e build

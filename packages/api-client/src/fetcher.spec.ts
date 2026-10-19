@@ -33,6 +33,12 @@ describe('fetcher', () => {
       status: 502,
       info: '<html>Bad Gateway</html>',
     });
+
+    // A body that claims JSON but doesn't parse still rejects with the status, not a SyntaxError.
+    fetchMock.mockResolvedValueOnce(
+      new Response('{', { status: 500, headers: { 'content-type': 'application/json' } }),
+    );
+    await expect(fetcher('/api/health')).rejects.toMatchObject({ status: 500, info: undefined });
   });
 
   it('retries only network errors and 5xx, three times', () => {

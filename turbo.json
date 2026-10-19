@@ -11,6 +11,9 @@
     "test": {
       "dependsOn": ["^generate", "generate"]
     },
+    "test:cov": {
+      "dependsOn": ["^generate", "generate"]
+    },
     "test:e2e": {},
     "dev": {
       "dependsOn": ["^generate"],
