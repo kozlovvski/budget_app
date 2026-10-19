@@ -1,9 +1,6 @@
-// Orval mutator. SSR loaders call the api directly; the browser stays on its own origin (architecture §3).
-const baseUrl = () =>
-  typeof window === 'undefined' ? (process.env.API_URL ?? 'http://localhost:3001') : '';
-
+// Orval mutator. The web app is a static SPA, so every call is a relative /api URL on its own origin (architecture §3).
 export const fetcher = async <T>(url: string, init?: RequestInit): Promise<T> => {
-  const res = await fetch(`${baseUrl()}${url}`, init);
+  const res = await fetch(url, init);
   // Reject so TanStack Query enters its error state; same error shape as orval's own fetch client.
   if (!res.ok) {
     const isJson = res.headers.get('content-type')?.includes('json');
@@ -16,9 +13,6 @@ export const fetcher = async <T>(url: string, init?: RequestInit): Promise<T> =>
   return { data, status: res.status, headers: res.headers } as T;
 };
 
-// TanStack Query retry policy: in the browser, retry network errors and 5xx; a 4xx fails the same way again.
-// The server keeps TanStack's default of no retries, so SSR never waits on backoff.
+// TanStack Query retry policy: retry network errors and 5xx; a 4xx fails the same way again.
 export const shouldRetry = (failureCount: number, error: Error): boolean =>
-  typeof window !== 'undefined' &&
-  failureCount < 3 &&
-  ((error as Error & { status?: number }).status ?? 500) >= 500;
+  failureCount < 3 && ((error as Error & { status?: number }).status ?? 500) >= 500;

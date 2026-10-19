@@ -3,12 +3,15 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build", "^generate"],
-      "outputs": ["dist/**", ".output/**"]
+      "outputs": ["dist/**"]
     },
     "typecheck": {
       "dependsOn": ["^generate", "generate"]
     },
     "test": {
+      "dependsOn": ["^generate", "generate"]
+    },
+    "test:cov": {
       "dependsOn": ["^generate", "generate"]
     },
     "test:e2e": {},
