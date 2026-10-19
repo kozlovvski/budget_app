@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { diff, fieldShare, type Fetch, type Tx } from './eb.ts';
+import { diff, fieldShare, waitForCode, type Fetch, type Tx } from './eb.ts';
 
 const fetchOf = (txs: Tx[]): Fetch => ({
   at: '',
@@ -49,4 +49,24 @@ test('fieldShare gives the share of transactions with each field filled', () => 
     { creditor: null, remittance_information: [] },
   ];
   assert.deepEqual(fieldShare(txs), { 'creditor.name': 50, remittance_information: 50 });
+});
+
+test('waitForCode takes the code from the bank redirect and ignores other paths', async () => {
+  const redirect = new URL('http://localhost:5899/bank-callback');
+  const code = waitForCode(redirect);
+  assert.equal((await fetch('http://localhost:5899/favicon.ico')).status, 404);
+  const res = await fetch(`${redirect}?state=s&code=abc`);
+  assert.equal(await res.text(), 'Connected. You can close this tab.');
+  assert.equal(await code, 'abc');
+
+  // Another port: fetch would reuse its pooled socket to the closed server.
+  const refused = assert.rejects(
+    waitForCode(new URL('http://localhost:5900/bank-callback')),
+    /access_denied/,
+  );
+  assert.equal(
+    (await fetch('http://localhost:5900/bank-callback?error=access_denied')).status,
+    400,
+  );
+  await refused;
 });

@@ -6,7 +6,7 @@ Findings go in `docs/research/spike-01-enable-banking.md`, anonymised by the App
 
 ## Setup (once)
 
-1. **Enable Banking applications.** In the Control Panel, create a sandbox application and a production application (restricted mode). For each, keep its private key outside the repo and note its application ID. Register a redirect URL Enable Banking accepts. The page doesn't have to load: after approving at the bank, you copy the address from the browser bar.
+1. **Enable Banking applications.** In the Control Panel, create a sandbox application and a production application (restricted mode). For each, keep its private key outside the repo and note its application ID. Register `http://localhost:5173/bank-callback` as a redirect URL (plain http is accepted for localhost): `connect` listens there and takes the code from the bank's redirect itself. Port 5173 must be free, so stop any Vite dev server first.
 2. **A gpg key for the raw history.** Fetches are encrypted to its public key, so unattended runs need no passphrase.
    ```sh
    gpg --quick-gen-key spike-01 default default never
@@ -17,7 +17,7 @@ Findings go in `docs/research/spike-01-enable-banking.md`, anonymised by the App
    ```sh
    EB_APP_ID=<application id>
    EB_KEY_PATH=/home/<you>/spike-01/prod.pem
-   EB_REDIRECT_URL=<redirect URL registered for the application>
+   EB_REDIRECT_URL=http://localhost:5173/bank-callback
    SPIKE_GPG_KEY=spike-01
    SPIKE_DIR=/home/<you>/spike-01          # sandbox: /home/<you>/spike-01-sandbox
    PSU_IP=<your public IP>                 # for --present; curl -s https://api.ipify.org
@@ -30,7 +30,7 @@ Findings go in `docs/research/spike-01-enable-banking.md`, anonymised by the App
 |---|---|---|
 | `eb aspsps [--country PL] [--bank Erste]` | Lists banks. With `--bank`, the full entry, including the maximum consent length | 1, item 1 |
 | `eb application` | Shows the application and its linked accounts | 3, item 17 |
-| `eb connect --bank <name> [--country PL] [--days 180]` | Starts a consent, waits for you to approve at the bank and paste the redirect URL, creates the session, then fetches "longest" at once as a member-present request | 1, 2 |
+| `eb connect --bank <name> [--country PL] [--days 180]` | Starts a consent, prints the bank's URL, waits for the redirect to `EB_REDIRECT_URL` after you approve, creates the session, then fetches "longest" at once as a member-present request | 1, 2 |
 | `eb fetch [--present] [--strategy default\|longest] [--session <id>] [--from YYYY-MM-DD]` | For each session (or the one named): session status, then details, balances and every transaction page per account. Unattended unless `--present`. Prints minutes since approval, every failed request and, per account, the count, statuses and oldest and newest date | 2, 5, 6 |
 | `eb diff [<fileA> <fileB>]` | Changes between two fetches: `+` added, `-` gone, `~` changed fields, `=` identifier seen more than once. With no files, the newest two of each bank and strategy | 5, items 9–11, 15 |
 | `eb fields <file>...` | Share of transactions with each field filled | item 6 |

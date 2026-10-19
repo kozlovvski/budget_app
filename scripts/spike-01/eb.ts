@@ -4,9 +4,9 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID, sign } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
 
 const API = 'https://api.enablebanking.com';
@@ -154,6 +154,32 @@ function load(file: string): Fetch {
   return JSON.parse(gpg.stdout.toString());
 }
 
+// Catches the bank's redirect on a local EB_REDIRECT_URL, such as http://localhost:5173/bank-callback.
+export function waitForCode(redirect: URL): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const server = createServer((req, res) => {
+      const params = new URL(req.url ?? '/', redirect).searchParams;
+      if (!req.url?.startsWith(redirect.pathname)) {
+        res.writeHead(404).end();
+        return;
+      }
+      const code = params.get('code');
+      // Closing before the reply is flushed cuts it off; a kept-alive socket would outlive the server.
+      res
+        .writeHead(code ? 200 : 400, { connection: 'close' })
+        .end(
+          code ? 'Connected. You can close this tab.' : `The bank returned no code: ${params}`,
+          () => server.close(),
+        );
+      if (code) resolve(code);
+      else reject(new Error(`The bank returned no code: ${params}`));
+    });
+    server.on('error', reject);
+    // No host, so a browser on the Windows side of WSL reaches it too.
+    server.listen(Number(redirect.port || 80));
+  });
+}
+
 export function transactions(f: Fetch): Tx[] {
   return f.calls.flatMap((call) => {
     const account = /^\/accounts\/([^/]+)\/transactions/.exec(call.path)?.[1];
@@ -298,6 +324,8 @@ async function main() {
         mode: 'connect',
         calls: [],
       };
+      // Listen before starting the consent, so a busy port fails before anyone approves at the bank.
+      const redirect = waitForCode(new URL(env('EB_REDIRECT_URL')));
       const auth = await api(f.calls, 'POST', '/auth', {
         body: {
           access: { valid_until: new Date(Date.now() + Number(opts.days) * 864e5).toISOString() },
@@ -309,11 +337,10 @@ async function main() {
       });
       const url = (auth.body as { url?: string }).url;
       if (!url) throw new Error(`No authorisation URL: ${JSON.stringify(auth.body)}`);
-      console.log(`Open this and approve at the bank:\n${url}\n`);
-      const rl = createInterface({ input: process.stdin, output: process.stdout });
-      const pasted = (await rl.question('Paste the URL the bank redirected you to: ')).trim();
-      rl.close();
-      const code = pasted.startsWith('http') ? new URL(pasted).searchParams.get('code') : pasted;
+      console.log(
+        `Open this and approve at the bank:\n${url}\n\nWaiting for the redirect to ${env('EB_REDIRECT_URL')}`,
+      );
+      const code = await redirect;
       const created = await api(f.calls, 'POST', '/sessions', { body: { code } });
       const body = created.body as { session_id?: string; accounts?: { uid: string }[] };
       if (!body.session_id) {
