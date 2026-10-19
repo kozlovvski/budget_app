@@ -4,19 +4,19 @@ Method, checklist and gates: `docs/PRD.md` Appendix B. Issue #8. Tooling and run
 
 Draft. A cell reads "—" until it has evidence, or "not available" with the reason. Every sample here follows the Appendix B anonymisation rules and has had a second read before commit.
 
-**Scope of this draft.** On day 1 the developer chose to draw conclusions from Erste alone, from two fetches on the day of connection, without the observation period. Alior's consent was authorised but returned no accounts (§2). So every gate below is a **proposal** for the user to decide. Anything that needs time (pending → booked, changes over days, limits, revocation, re-consent, the history window) is untested and keeps its conservative default.
+**Scope of this draft.** On day 1 the developer chose to draw conclusions from Erste alone, from two fetches on the day of connection, without the observation period. Alior's consent was authorised but returned no accounts (§2). The gates below were proposed from that evidence and decided by the user on 2026-10-20 (§8). Anything that needs time (pending → booked, changes over days, limits, revocation, re-consent, the history window) is untested and keeps its conservative default.
 
 ## 1. Summary
 
-**Decision: go with Enable Banking.** Despite the limits below, the developer keeps Enable Banking as the bank-data provider. The app is built so the provider can be replaced later (`docs/architecture.md` §5.9). The gates still need deciding.
+**Decision: go with Enable Banking.** Despite the limits below, the developer keeps Enable Banking as the bank-data provider. The app is built so the provider can be replaced later (`docs/architecture.md` §5.9).
 
-| Gate | Proposed decision | Evidence |
+| Gate | Decision | Evidence |
 |---|---|---|
 | G1 | Not triggered: no limit assumed (default) | 5 Erste accounts linked and returned without refusal |
-| G2 | Not triggered: 96% | 48 of 50 Erste transactions scored usable (item 8; scores proposed, the user to confirm) |
-| G3 | Cards: not triggered, the card balance is exposed. Loans: triggered, manual liabilities | The credit card is an account with a debt balance; a monthly loan repayment leaves a current account but no loan account is returned |
+| G2 | Not triggered: 96% | 48 of 50 Erste transactions scored usable (item 8) |
+| G3 | Cards: not triggered, the card balance is exposed. Loans: triggered. Loans aren't tracked as accounts for now: a repayment is a fixed expense in "Rent / mortgage payment" or "Other loan repayments" | The credit card is an account with a debt balance; a monthly loan repayment leaves a current account but no loan account is returned |
 | G4 | Not triggered | The first "longest" fetch returned 730 days, the full range requested |
-| G5 | Triggered for Erste | No pending items in either strategy, while available < booked shows holds exist |
+| G5 | Triggered for Erste. Pending handling (TXN-06, TXN-07) is postponed to Later; M1 imports booked transactions only | No pending items in either strategy, while available < booked shows holds exist |
 | G6 | Triggered for Erste: booking date | `transaction_date` and `value_date` are never filled |
 | G7 | Default (assume triggered; no rule change) | No identifier problem in two fetches 18 minutes apart; not observed over days |
 | G8 | Default (manual merge) | No second login (§10) |
@@ -25,7 +25,7 @@ Draft. A cell reads "—" until it has evidence, or "not available" with the rea
 | G11 | Not triggered for Erste | Counterparty IBAN on 605 of 605 non-card debits and 310 of 350 non-card credits; card repayments pair 40 of 40 |
 | G12 | Not triggered: not used | No enrichment fields; merchant names are raw card descriptors |
 | G13 | Default (the link uses up the window) | Not tested; the kept 730-day history covers the Erste accounts anyway |
-| G14 | Erste: 3 days. Household: 7 days while Alior is unmeasured | Proxy: 112 rides whose descriptor carries the ride date, 9 in 10 booked within 3 days |
+| G14 | 5 days, household-wide, so a month is settled for a review on the 5th | The budget date is the booking date (G6), so a transaction reaches the app about a day after its budget date (inferred, not observed over days). From purchase to booking: 112 rides, 9 in 10 within 3 days |
 
 Top 5 findings:
 1. **Two years of history on the first fetch, and it holds together.** "longest" returned 730 days, everything requested, and "default" returns 90 days. Transaction identifiers are unique and stable between the two fetches, and on current accounts each `balance_after_transaction` follows from the one before, so a gap in the history can be detected.
@@ -192,87 +192,87 @@ Card payments in a foreign currency from a PLN account (5 in 730 days: 4 EUR, 1 
 
 ## 8. Decision gates
 
-All decisions are proposals until the user decides.
+Decided on 2026-10-20. The user chose G3, G5, G6 and G14; the others were accepted as proposed. Untested gates keep the PRD's conservative defaults until a later test says otherwise (§10).
 
 | Gate | Trigger observed | Decision | Evidence | Requirements affected |
 |---|---|---|---|---|
 | G1 | No | No limit assumed until Enable Banking refuses a link; CSV for any account it refuses (default) | 5 Erste accounts returned | BANK-02, BANK-16, J-01 |
 | G2 | No | Merchant cleanup stays as planned; categorisation target unchanged | 96% on 50 Erste transactions (item 8) | CAT-14, MET-05 |
-| G3 | Cards no; loans yes | NW uses the card's booked balance as its liability; manual liabilities for loans | Card `ITBD` is the debt; no loan account returned | ACC-06, ACC-08 |
+| G3 | Cards no; loans yes | NW uses the card's booked balance as its liability. Loans aren't tracked for now: a repayment is a fixed expense in "Rent / mortgage payment" or "Other loan repayments", and Erste's loan-repayment type maps to the latter. A manual loan for net worth comes with ACC-08 (M3) | Card `ITBD` is the debt; no loan account returned | ACC-06, ACC-08, CAT-11, NW-02 |
 | G4 | No | The budget wizard can use up to 2 years of history for Erste | 730 days on the first fetch | TXN-21, BUD-13 |
-| G5 | Yes (Erste) | Pending items aren't shown for Erste; left to spend says "excludes purchases not yet booked" for it | Only `BOOK`; `ITAV` < `ITBD` | TXN-06, TXN-07, BUD |
+| G5 | Yes (Erste) | Pending handling is postponed: TXN-06 and TXN-07 move to Later, M1 imports booked transactions only, and left to spend says "excludes purchases not yet booked". When a connected bank sends pending items, they are built then | Only `BOOK`; `ITAV` < `ITBD` | TXN-06, TXN-07, BUD-02, ACC-12, J-07 |
 | G6 | Yes (Erste) | Budget date is the booking date for Erste; expect month-end shifts of 1–6 days | `transaction_date` 0% | TXN-05 |
 | G7 | Not observed over days | Assume triggered (default); no rule change | Clean over 18 minutes only | TXN-10 |
 | G8 | Not tested | Manual merge (default) | No second login | BANK-15 |
-| G9 | Not tested | 1 day (default) | — | BANK-10 |
+| G9 | Not tested | 1 day (default) | — | BANK-10, J-07 |
 | G10 | Not tested | Assume member refreshes are counted (default) | — | BANK-06, BANK-07 |
 | G11 | No (Erste) | Internal transfers can be matched by counterparty IBAN, card repayments included; currency exchanges also by their shared reference | 605/605 non-card debits with IBAN; 40/40 card repayments paired | TXN-13 |
 | G12 | No | Not used | No enrichment fields | CAT |
 | G13 | Not tested | Assume the link uses up the window (default); the kept spike history is imported in M1 | — | BANK-16, BANK-05 |
-| G14 | Erste only | Household window stays 7 days while Alior is unmeasured (it counts as 7); Erste alone would give 3 | 112-ride proxy, 9 in 10 within 3 days | BUD, INS-23 |
+| G14 | Erste only | 5 days, household-wide and fixed rather than calibrated per bank, so a month is settled when it's reviewed on the 5th. A bank connected later whose lag proves longer may raise it, at most to 14 | Booking date is the budget date (G6): about 1 day to the first sync, inferred. 112-ride proxy, purchase to booking 9 in 10 within 3 days | INS-23, J-02, J-04, BUD defaults |
 
 ## 9. PRD impact
 
-Every requirement marked `Depends on: SPIKE-01`, each "unchanged" or with the change to make. Filled once the user has decided the gates in §8.
+Every requirement marked `Depends on: SPIKE-01`, each "unchanged" or with the change made in `docs/PRD.md`. "Not tested" means the PRD's conservative default stands until a later test (§10).
 
 | Requirement | Change |
 |---|---|
-| ACC-02 | — |
-| ACC-06 | — |
-| ACC-08 | — |
-| ACC-12 | — |
-| AUTH-11 | — |
-| BANK-01 | — |
-| BANK-04 | — |
-| BANK-05 | — |
-| BANK-06 | — |
-| BANK-07 | — |
-| BANK-10 | — |
-| BANK-12 | — |
-| BANK-14 | — |
-| BANK-15 | — |
-| BANK-16 | — |
-| BUD-02 | — |
-| BUD-13 | — |
-| CAT-07 | — |
-| CAT-10 | — |
-| CAT-11 | — |
-| CAT-14 | — |
-| FC-03 | — |
-| FC-04 | — |
-| HH-06 | — |
-| HH-07 | — |
-| INS-03 | — |
-| INS-11 | — |
-| INS-23 | — |
-| J-01 | — |
-| J-02 | — |
-| J-05 | — |
-| J-06 | — |
-| J-07 | — |
-| J-08 | — |
-| J-09 | — |
-| J-11 | — |
-| MET-05 | — |
-| NW-02 | — |
-| NW-04 | — |
-| NW-06 | — |
-| REC-01 | — |
-| REC-02 | — |
-| REC-03 | — |
-| REC-06 | — |
-| REC-14 | — |
-| SET-03 | — |
-| SET-09 | — |
-| TXN-03 | — |
-| TXN-05 | — |
-| TXN-06 | — |
-| TXN-07 | — |
-| TXN-10 | — |
-| TXN-13 | — |
-| TXN-14 | — |
-| TXN-21 | — |
-| TXN-24 | — |
+| ACC-02 | Unchanged. Erste types every account `CACC`; the adapter types the card as a credit card from its product name (`docs/architecture.md` §5.9) |
+| ACC-06 | Unchanged. Owed comes from source (1), the card's booked balance; "Available credit" is `ITAV`. No limit is given, so a member enters it |
+| ACC-08 | Unchanged, M3. Erste returns no loan account, so the manual path applies. Until then a repayment is a fixed expense in "Rent / mortgage payment" or "Other loan repayments" (G3) |
+| ACC-12 | **Changed:** the pending setting is pre-set off for Erste (booked excludes holds, item 5) and isn't shown until TXN-06 is built (G5) |
+| AUTH-11 | Unchanged: re-consent not tested |
+| BANK-01 | Unchanged. Erste gives no masked number but an IBAN on every account, and no co-holder flag, so Joint is never suggested from bank data. Type: ACC-02 |
+| BANK-04 | Unchanged. Erste returned 730 days on the first fetch; the window's length wasn't tested, so the 60-minute limit stays (G13) |
+| BANK-05 | Unchanged: option (b) stays, with its warning, because G13 wasn't tested |
+| BANK-06 | Unchanged: limits not tested, and member refreshes are assumed to count (G10) |
+| BANK-07 | Unchanged. Two member-present fetches on day 1 weren't refused; whether they count against the unattended limit wasn't tested (G10) |
+| BANK-10 | **Changed:** "May need renewing" after 1 day of failures, not 3 (G9). History depth without a fresh window stays 90 days, which is what Erste's "default" returned |
+| BANK-12 | Unchanged: re-consent not tested. The card has its own IBAN, so it is identified like any account |
+| BANK-14 | Unchanged: whether ending access revokes the consent at the bank wasn't tested (item 21), so the message still doesn't claim it |
+| BANK-15 | Unchanged: no second login (G8, manual merge). Erste gives an IBAN on every account, so the automatic match by full identifier can apply |
+| BANK-16 | Unchanged: 5 accounts linked without reaching a limit (G1); the window wasn't tested (G13) |
+| BUD-02 | **Changed:** the pending rule does nothing until TXN-06 is built, and left to spend says "excludes purchases not yet booked" (G5) |
+| BUD-13 | Unchanged: 730 days at Erste (G4), so the short-history path is for CSV-only and newly opened accounts |
+| CAT-07 | Unchanged. Erste fills the counterparty name, and the account number on non-card transactions. No card merchant codes, so that condition isn't offered; bank transaction code conditions use the transaction type (CAT-11) |
+| CAT-10 | Unchanged. Counterparty account number on all non-card debits and 89% of non-card credits, none on card payments, which rely on the descriptor |
+| CAT-11 | **Changed:** kept, not dropped. Erste's transaction type, the second line of the description, serves as the bank transaction code; a loan repayment maps to "Other loan repayments" (G3) |
+| CAT-14 | Unchanged: 96% of descriptions usable (G2), so it stays Should |
+| FC-03 | Unchanged. The starting balance is the booked balance; with no pending imported (G5), nothing is applied on day 0 |
+| FC-04 | Unchanged: Erste reports no statement balance or repayment date for the card, as FC-04 already assumes |
+| HH-06 | Unchanged: no second login, so joint accounts weren't compared (G8) |
+| HH-07 | Unchanged: ending a connection wasn't tested (item 21) |
+| INS-03 | Unchanged. Erste returned exactly the 730 days asked for, so an account whose history starts near that date reached the limit; whether Erste holds more is open (§10) |
+| INS-11 | Unchanged: descriptions are usable (G2) |
+| INS-23 | **Changed:** the settling window is a fixed 5 days instead of calibrated per bank, so a month is settled for a review on the 5th (G14). The defaults table and glossary follow |
+| J-01 | **Changed:** step 9 names pay not arriving straight from an employer as a reason to enter the payday by hand (§4, §10). The rest unchanged: window not tested (G13), descriptions usable (G2) |
+| J-02 | **Changed:** CSV files are imported about 5 days after the period ends, not a week (G14). Second registration and account limit not tested |
+| J-05 | Unchanged: no card repayment date is reported, so 3b's "Card repayment date unknown" applies |
+| J-06 | Unchanged: re-consent not tested |
+| J-07 | **Changed:** 1a waits 1 day, not 3 (G9); step 4 runs pending matching only once TXN-07 is built (G5) |
+| J-08 | Unchanged: no second login (G8) |
+| J-09 | Unchanged: ending a connection not tested (item 21) |
+| J-11 | Unchanged: no reissued card, closed account or new account was seen in one day |
+| MET-05 | Unchanged: (a) under 10% and (b) at least 80% stand; 96% usable descriptions give no reason to lower (b) (G2) |
+| NW-02 | Unchanged: the card counts at its booked balance (ACC-06); loans count only once entered by hand (ACC-08, M3; G3) |
+| NW-04 | Unchanged: no second login (G8) |
+| NW-06 | Unchanged: Erste returns only current balances, and past values come from ACC's history as NW-06 says. `balance_after_transaction` on current accounts agrees with it |
+| REC-01 | Unchanged. Descriptions, counterparty account numbers and 730 days of history are there; the tolerances weren't re-tuned (no observation period) |
+| REC-02 | Unchanged: Erste's transaction type tells a transfer or standing order from a card payment or direct debit (CAT-11) |
+| REC-03 | Unchanged: Erste gives the original amount only in the description, so none is shown (TXN-24). 5 foreign card payments in 730 days |
+| REC-06 | Unchanged: no pending (G5); references are in the descriptions |
+| REC-14 | Unchanged: as REC-03 |
+| SET-03 | Unchanged: no FX fields filled; a currency account comes as its own account in its currency, and the bank's own exchange legs share a reference |
+| SET-09 | Unchanged: ending a connection not tested (item 21) |
+| TXN-03 | Unchanged: Erste fills only the booking date, so only that date shows (item 6) |
+| TXN-05 | Unchanged: with no transaction date, the existing order falls to the booking date (G6) |
+| TXN-06 | **Changed:** Should, Later. M1 imports booked transactions only; the "doesn't show pending transactions" message and the cancelled-after-booking rule still ship in M1 (G5) |
+| TXN-07 | **Changed:** Should, Later, with TXN-06 (G5) |
+| TXN-10 | Unchanged: identifiers stable over 18 minutes only (G7 default). 35 groups of identical same-day transactions have distinct identifiers and are counted, not collapsed |
+| TXN-13 | Unchanged: counterparty IBAN on every non-card debit, card repayments pair 40 of 40, exchange legs share a reference (G11). A loan repayment isn't marked as a transfer, so it falls to CAT-11 |
+| TXN-14 | Unchanged: the card is its own account, and its repayments are transfers to its IBAN (item 19) |
+| TXN-21 | Unchanged: no CSV export collected, so no presets yet; the kept 730-day history is imported in M1 (G13) |
+| TXN-24 | Unchanged: original amount and rate only in the description, so only the PLN amount is shown |
 
 ## 10. Open questions
 
@@ -285,7 +285,7 @@ Every requirement marked `Depends on: SPIKE-01`, each "unchanged" or with the ch
 | Unattended limits, revocation, re-consent | G9 and G10 defaults |
 | Only one member has a registration, so joint accounts can't be compared. Is [ACCT_C] a joint account? It's used by two cards but returns one holder | Manual merge (G8 default) |
 | Can the salary be recognised? No employer pays into these accounts | The payday is entered by hand in the budget wizard |
-| Is the card's repayment date reported anywhere? Not in the account details or balances | "Card repayment date unknown" (J-07 3b) |
+| Is the card's repayment date reported anywhere? Not in the account details or balances | "Card repayment date unknown" (J-05 3b) |
 
 ## 11. Data handling
 
