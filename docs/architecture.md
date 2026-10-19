@@ -42,7 +42,7 @@ The high-level technical design for the budget app. `docs/PRD.md` says *what* th
         └──────/*──────► web   nginx: the built static files, index.html as the fallback
                               │ commands and queries           │ after commit: enqueue IDs only
                               ▼                                ▼
-                 PostgreSQL (shared CNPG cluster)           Redis (BullMQ)
+                 PostgreSQL (shared CNPG cluster)           Redis (shared, BullMQ)
                  schemas: core · audit                         │
                               ▲                                ▼
                               └────────────────────── worker   NestJS, same image as api
@@ -206,7 +206,7 @@ apps/api/src/
 - **Handlers are idempotent.** They check the current state before acting, so a job run twice, or by both the event and a sweep, does no harm (NFR-05 "Repeat-safe imports").
 - **What must never be lost is written in the same transaction, never only sent as an event.** The access journal (§8) is the example.
 - **Example flow:** sync → ingest (pure engine) → `transactions.ingested` → categorise (the CAT-05 chain) → `transactions.categorised` → recurring match.
-- **Redis can be thrown away.** After a restore or a Redis failure: wipe Redis, let the schedules re-register at startup and let the sweeps pick up pending work.
+- **Redis can be thrown away.** After a restore or a Redis failure: delete the app's `budget:` keys (never the whole shared instance), let the schedules re-register at startup and let the sweeps pick up pending work.
 
 ### 5.8 Bank sync scheduling
 
@@ -267,10 +267,10 @@ apps/api/src/
 - **Kubernetes manifests** in `deploy/` with kustomize. `deploy/app/` (namespace `budget`) holds:
   - `web`, `api` and `worker` Deployments. `api` and `worker` run one image (`apps/api/Dockerfile`), the worker with `node dist/main.worker.js`;
   - `web` is unprivileged nginx with the built files (`apps/web/nginx.conf`): `/assets/*` cached for a year as immutable and a real 404 when missing, every other path `no-cache` with `index.html` as the fallback, and the security headers, CSP included;
-  - one Ingress host, `budget.apps.gwiazdeczkowo.top`: `/api` to `api` and everything else to `web`, with cert-manager TLS;
-  - Redis as one pod with a password and no volume. It holds only job IDs, so a lost queue costs nothing the sweeps don't find again (§3).
+  - one Ingress host, `budget.apps.gwiazdeczkowo.top`: `/api` to `api` and everything else to `web`, with cert-manager TLS.
 
   `deploy/postgres/` (namespace `postgres`) holds the `budget` database and role on the shared cluster (§8). Both are kept if their files or the Application are deleted (`retain`, `Prune=false`).
+- **Redis is the platform's shared instance** (`redis.redis.svc.cluster.local:6379`, defined in the platform repo), with no volume and `noeviction` (BullMQ needs it). The app signs in as ACL user `budget`, which can touch only keys starting `budget:`, so BullMQ's `prefix` must be `budget`. A restart empties it, which costs nothing the sweeps don't find again (§3).
 - **NetworkPolicies wait for a CNI that enforces them.** The cluster runs flannel, which ignores them, so Redis and PostgreSQL rely on passwords for now. Add them before Enable Banking keys land: only the worker may reach Enable Banking and the email service; only `api` and `worker` may reach PostgreSQL and Redis; `web` accepts traffic from the ingress controller only.
 - **Delivery:** the ArgoCD Application `budget` (`argocd/application.yaml`) watches `deploy/`. On a push to `main`, once the `ci` job passes, GitHub Actions builds both images for arm64 (the nodes' architecture) to ghcr.io, tagged `sha-<commit>`. It then commits the new tag to `deploy/kustomization.yaml` with `[skip ci]`, pushing with a deploy key that the "Protect main" ruleset lets bypass its rules. MikroORM migrations run as an ArgoCD PreSync hook Job. One-time setup and rollback: `deploy/README.md`.
 - **Secrets** (the key-encryption key, database credentials, the email key) are created outside the repo or committed only in encrypted form (SOPS or Sealed Secrets). Never in plain text. For now they are created by hand (`deploy/README.md`).
@@ -312,6 +312,7 @@ NFR-03 allows a diagnostics service that receives scrubbed technical data only (
 | Drizzle | Considered for its `@nestjs/workflows` support; dropped with workflows. MikroORM's unit of work and version checks suit the aggregates | — |
 | TanStack Start, with SSR or in its SPA mode | Rejected for a static SPA on TanStack Router. The app sits behind sign-in, so SSR helps no search engine, and it would add a Node process to run and secure, cookie forwarding, hydration and CSP nonces. SPA mode still builds a server bundle for server functions the app won't use | NFR-07's first-visit target is missed after code splitting and caching |
 | A dedicated CloudNativePG cluster | Deferred. The free tier has no room for another block volume, so the app has its own database and role on the shared `pg` cluster, with `CONNECT` revoked from `PUBLIC` (§8) | Block storage frees up, or a neighbour on `pg` slows the app down |
+| A Redis of the app's own | Rejected. One shared instance is less to run; an ACL user per app keeps the keys apart | A neighbour's load slows the queues, or it needs an eviction policy other than `noeviction` |
 | Redis persistence on a volume | Rejected for now. Redis holds only job IDs and the sweeps find lost work, so a volume buys little and would take the last free block storage | A job appears whose loss no sweep can recover |
 | Microservices, Kafka or NATS, Nest sagas, presenter layers, PWA | Rejected as more than one household needs. PWA is out of scope in the PRD | — |
 
