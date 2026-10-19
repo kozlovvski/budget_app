@@ -7,15 +7,6 @@ Findings go in `docs/research/spike-01-enable-banking.md`, anonymised by the App
 ## Setup (once)
 
 1. **Enable Banking applications.** In the Control Panel, create a sandbox application and a production application (restricted mode). For each, keep its private key outside the repo and note its application ID. Register `http://localhost:5173/bank-callback` as a redirect URL (plain http is accepted for localhost): `connect` listens there and takes the code from the bank's redirect itself. Port 5173 must be free, so stop any Vite dev server first.
-
-   A production application needs an https redirect on a real domain. Register one on a domain you own (a missing hosts entry then sends the code only to you), for example `https://cb.<your-domain>/bank-callback`, and point it at your machine:
-   - Windows hosts file (`C:\Windows\System32\drivers\etc\hosts`, as administrator): `127.0.0.1 cb.<your-domain>`.
-   - A self-signed certificate; the browser warns once and you choose to continue:
-     ```sh
-     openssl req -x509 -newkey rsa:2048 -nodes -days 90 -subj "/CN=cb.<your-domain>" \
-       -addext "subjectAltName=DNS:cb.<your-domain>" -keyout ~/spike-01/tls/key.pem -out ~/spike-01/tls/cert.pem
-     ```
-   - Port 443 without root, until WSL restarts: `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443`.
 2. **A gpg key for the raw history.** Fetches are encrypted to its public key, so unattended runs need no passphrase.
    ```sh
    gpg --quick-gen-key spike-01 default default never
@@ -26,9 +17,7 @@ Findings go in `docs/research/spike-01-enable-banking.md`, anonymised by the App
    ```sh
    EB_APP_ID=<application id>
    EB_KEY_PATH=/home/<you>/spike-01/prod.pem
-   EB_REDIRECT_URL=http://localhost:5173/bank-callback   # production: the https URL from step 1
-   EB_TLS_CERT=/home/<you>/spike-01/tls/cert.pem         # https redirect only
-   EB_TLS_KEY=/home/<you>/spike-01/tls/key.pem
+   EB_REDIRECT_URL=http://localhost:5173/bank-callback
    SPIKE_GPG_KEY=spike-01
    SPIKE_DIR=/home/<you>/spike-01          # sandbox: /home/<you>/spike-01-sandbox
    PSU_IP=<your public IP>                 # for --present; curl -s https://api.ipify.org

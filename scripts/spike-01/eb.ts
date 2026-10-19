@@ -4,8 +4,7 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID, sign } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { createServer, type RequestListener } from 'node:http';
-import { createServer as createTlsServer } from 'node:https';
+import { createServer } from 'node:http';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -155,11 +154,10 @@ function load(file: string): Fetch {
   return JSON.parse(gpg.stdout.toString());
 }
 
-// Catches the bank's redirect on a local EB_REDIRECT_URL: http://localhost:5173/bank-callback for
-// sandbox, or for production an https URL whose host the hosts file points at 127.0.0.1.
+// Catches the bank's redirect on a local EB_REDIRECT_URL, such as http://localhost:5173/bank-callback.
 export function waitForCode(redirect: URL): Promise<string> {
   return new Promise((resolve, reject) => {
-    const handle: RequestListener = (req, res) => {
+    const server = createServer((req, res) => {
       const params = new URL(req.url ?? '/', redirect).searchParams;
       if (!req.url?.startsWith(redirect.pathname)) {
         res.writeHead(404).end();
@@ -175,17 +173,10 @@ export function waitForCode(redirect: URL): Promise<string> {
         );
       if (code) resolve(code);
       else reject(new Error(`The bank returned no code: ${params}`));
-    };
-    const tls = redirect.protocol === 'https:';
-    const server = tls
-      ? createTlsServer(
-          { cert: readFileSync(env('EB_TLS_CERT')), key: readFileSync(env('EB_TLS_KEY')) },
-          handle,
-        )
-      : createServer(handle);
+    });
     server.on('error', reject);
     // No host, so a browser on the Windows side of WSL reaches it too.
-    server.listen(Number(redirect.port || (tls ? 443 : 80)));
+    server.listen(Number(redirect.port || 80));
   });
 }
 
