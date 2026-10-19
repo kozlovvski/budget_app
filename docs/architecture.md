@@ -13,7 +13,7 @@ The high-level technical design for the budget app. `docs/PRD.md` says *what* th
 | Every derived number shows how fresh and complete it is (INS-01, NFR-06) and follows one counting rulebook (BUD-02, INS-02) | Figures travel as `{ value, markers }`. The counting rules live in one pure module that every report calls |
 | Security and privacy: ASVS L2 baseline (NFR-01), protected bank data (NFR-02), no outside parties beyond the listed ones (NFR-03), append-only audit (NFR-04) | Own session handling, envelope encryption for bank secrets, scrubbed logs, no third-party scripts or fonts |
 | Backups: 24 h recovery point, first imports backed up at once, a restore never gives back removed access (NFR-12) | Continuous WAL archiving, and an access journal kept outside the database and replayed after a restore |
-| Dashboard within 2 s on a mid-range phone over slow 4G with 25,000 transactions (NFR-07); WCAG 2.2 AA (NFR-08); from 360 px (NFR-09); translatable (NFR-13) | Server-side rendering, small payloads, accessible components, i18n from the first screen |
+| Dashboard within 2 s on a mid-range phone over slow 4G with 25,000 transactions (NFR-07); WCAG 2.2 AA (NFR-08); from 360 px (NFR-09); translatable (NFR-13) | Per-route code splitting and long-cached assets, small payloads, accessible components, i18n from the first screen |
 | One household, built so it could grow | `household_id` on every household-owned row, and every command and query scoped by it |
 
 ## 2. Decisions at a glance
@@ -21,7 +21,7 @@ The high-level technical design for the budget app. `docs/PRD.md` says *what* th
 | Topic | Decision |
 |---|---|
 | Backend | NestJS **modular monolith** with CQRS: `@nestjs/cqrs` command and query buses |
-| Frontend | React with **TanStack Start** (server-side rendering), TanStack Query and **shadcn/ui** |
+| Frontend | React SPA with **TanStack Router** (static files, no server-side rendering), TanStack Query and **shadcn/ui** |
 | Database | PostgreSQL in its own CloudNativePG cluster. The single source of truth |
 | ORM | **MikroORM v7**. Domain classes are plain TypeScript, mapped in infrastructure with `defineEntity({ class })`. Read queries that need SQL use MikroORM's built-in Kysely (`em.getKysely()`) |
 | Background work | **BullMQ on Redis**. Events are queued after commit; every consumer also has a **sweep** that finds work it missed |
@@ -36,10 +36,10 @@ The high-level technical design for the budget app. `docs/PRD.md` says *what* th
 ## 3. System overview
 
 ```
- Browser (React, TanStack Start, shadcn/ui, Faro scrubbed)          MCP client (Later)
+ Browser (React SPA, TanStack Router, shadcn/ui, Faro scrubbed)     MCP client (Later)
         │ https://budget.<domain>  one origin, __Host- session cookie       │
  ingress-nginx ──/api/*──► api   NestJS: REST adapter (MCP adapter Later) ◄──/mcp──┘
-        └──────/*──────► web   TanStack Start SSR; loaders call api in-cluster with the cookie
+        └──────/*──────► web   nginx: the built static files, index.html as the fallback
                               │ commands and queries           │ after commit: enqueue IDs only
                               ▼                                ▼
                  PostgreSQL (dedicated CNPG cluster)        Redis (BullMQ)
@@ -57,7 +57,7 @@ The high-level technical design for the budget app. `docs/PRD.md` says *what* th
 
 | Process | Job |
 |---|---|
-| `web` | Renders pages. Its loaders call `api` inside the cluster and pass the session cookie on. No business logic and no database access |
+| `web` | Serves the built files from nginx, with `index.html` as the fallback for every route. No logic, no calls to `api` and no database access |
 | `api` | The HTTP entrypoint. Runs commands and queries; queues background work after commit |
 | `worker` | The same image with another entrypoint. Runs job processors and schedules. The only process that talks to Enable Banking, the email service and (later) the categoriser |
 | PostgreSQL | All state that matters, including history, audit and job bookkeeping such as refresh counters |
@@ -68,7 +68,7 @@ The high-level technical design for the budget app. `docs/PRD.md` says *what* th
 pnpm workspaces with Turborepo:
 
 ```
-apps/web/             TanStack Start
+apps/web/             React SPA: Vite and TanStack Router, built to static files
 apps/api/             NestJS: main.ts (HTTP), main.worker.ts (BullMQ), main.cli.ts (nest-commander)
 apps/categoriser/     Python FastAPI service, Later. Not created until needed
 packages/api-client/  generated from the api's OpenAPI document (orval: typed fetch, TanStack Query hooks, zod)
@@ -232,12 +232,12 @@ apps/api/src/
 
 ## 6. Frontend
 
-- **TanStack Start with server-side rendering.** Loaders call `api` inside the cluster and forward the cookie; in the browser the same calls go to `/api` on the same origin. Start's server functions are not used, so all logic stays in `api`. SPA mode is the fallback if SSR causes trouble.
+- **A static single-page app** on Vite and TanStack Router: file-based routes, one code-split chunk per route, and a build of static files only. Loaders run in the browser and call `/api` on the same origin, which sends the session cookie. All logic stays in `api`. Route guards only shape the UX; `api`'s checks are the security boundary (§5.4).
 - **Data and forms:** TanStack Query with the generated client from `packages/api-client`; TanStack Form with zod.
 - **UI:** shadcn/ui and Tailwind. Charts are shadcn charts, and each has a table equivalent (NFR-08). Fonts are self-hosted; nothing is loaded from another origin (NFR-03).
 - **One `<Figure>` component** renders `{ value, markers }`: the number with its markers as text and icon, never colour alone (INS-01, NFR-08).
 - **i18n:** Lingui with ICU messages (Polish plurals included) and a pseudo-locale to catch untranslated text (NFR-13). Numbers, money and dates are formatted with `Intl`.
-- **Text from banks is only ever text.** `dangerouslySetInnerHTML` is banned by lint. A strict Content Security Policy uses nonces, and `connect-src` allows only `'self'` and the Faro collector (NFR-01).
+- **Text from banks is only ever text.** `dangerouslySetInnerHTML` is banned by lint. A strict Content Security Policy, sent as a header by the static server, sets `script-src 'self'`, and `connect-src` allows only `'self'` and the Faro collector (NFR-01). The build emits no inline scripts, so nothing needs a per-request value. `style-src` is `'self' 'unsafe-inline'`: Radix injects `<style>` elements for scroll locking and scroll areas, and the scroll-lock one is computed at runtime, so no hash can cover it and a static file has no nonce. React escapes text and lint bans raw HTML, so bank text can't add a style; scripts stay locked to `'self'`.
 
 ## 7. Identity, sessions and security
 
@@ -266,10 +266,11 @@ apps/api/src/
 
 - **Kubernetes manifests** in `deploy/` with kustomize:
   - `web`, `api` and `worker` Deployments;
+  - `web` is unprivileged nginx with the built files: `/assets/*` cached for a year as immutable and a real 404 when missing, every other path `no-cache` with `index.html` as the fallback, and the security headers, CSP included;
   - one Ingress host, `/api` to `api` and everything else to `web`, with cert-manager TLS;
   - the `budget-pg` CloudNativePG Cluster and its ScheduledBackup;
   - a Redis StatefulSet with append-only persistence on a volume;
-  - NetworkPolicies: only the worker may reach Enable Banking and the email service; only `api` and `worker` may reach PostgreSQL and Redis.
+  - NetworkPolicies: only the worker may reach Enable Banking and the email service; only `api` and `worker` may reach PostgreSQL and Redis; `web` accepts traffic from the ingress controller only.
 - **Delivery:** an ArgoCD Application watches `deploy/`. GitHub Actions builds images to ghcr.io and commits the new image tag back with `[skip ci]`. MikroORM migrations run as an ArgoCD PreSync hook Job.
 - **Secrets** (the key-encryption key, database credentials, the email key) are created outside the repo or committed only in encrypted form (SOPS or Sealed Secrets). Never in plain text.
 
@@ -308,6 +309,7 @@ NFR-03 allows a diagnostics service that receives scrubbed technical data only (
 | Stored projections, separate read database | Not needed. At 25,000 transactions computing on request is fast enough, and it keeps one rulebook | A query misses its NFR-07 target after SQL and caching |
 | Event sourcing | Rejected. Conflicts with erasure (HH-08); explicit history tables cover what the PRD asks | — |
 | Drizzle | Considered for its `@nestjs/workflows` support; dropped with workflows. MikroORM's unit of work and version checks suit the aggregates | — |
+| TanStack Start, with SSR or in its SPA mode | Rejected for a static SPA on TanStack Router. The app sits behind sign-in, so SSR helps no search engine, and it would add a Node process to run and secure, cookie forwarding, hydration and CSP nonces. SPA mode still builds a server bundle for server functions the app won't use | NFR-07's first-visit target is missed after code splitting and caching |
 | Microservices, Kafka or NATS, Nest sagas, presenter layers, PWA | Rejected as more than one household needs. PWA is out of scope in the PRD | — |
 
 ## 13. Open questions

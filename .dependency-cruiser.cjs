@@ -5,7 +5,7 @@ module.exports = {
     {
       name: 'no-circular',
       severity: 'error',
-      // Type-only cycles are erased at build time; TanStack's routeTree.gen.ts has one by design.
+      // Type-only cycles are erased at build time.
       from: {},
       to: { circular: true, viaOnly: { dependencyTypesNot: ['type-only'] } },
     },
@@ -49,7 +49,7 @@ module.exports = {
     },
   ],
   options: {
-    exclude: { path: '(^|/)(dist|\\.output)/' },
+    exclude: { path: '(^|/)dist/' },
     doNotFollow: { path: 'node_modules' },
     // Type-only imports count too: a domain file importing a Nest type is still coupled to Nest.
     tsPreCompilationDeps: true,
