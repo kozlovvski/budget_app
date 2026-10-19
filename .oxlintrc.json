@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "import", "oxc"],
+  "env": {
+    "browser": true,
+    "node": true
+  },
+  "rules": {
+    "react/no-danger": "error",
+    "typescript/no-floating-promises": "error"
+  },
+  "ignorePatterns": ["**/generated/**", "**/routeTree.gen.ts"]
+}

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.turbo/
+.env*
+*.tsbuildinfo
+apps/api/openapi.json
+packages/api-client/src/generated/
+
+# Claude Code worktrees: separate checkouts, never part of this repo
+.claude/worktrees/

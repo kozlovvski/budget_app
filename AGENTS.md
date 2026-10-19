@@ -2,7 +2,7 @@
 
 A private budgeting app for one household: it pulls in the household's bank data, categorises spending, runs a flex budget and shows where the money goes.
 
-**Status:** requirements are drafted and the high-level technical design is agreed (`docs/architecture.md`); there is no application code yet. The repo uses OpenSpec (`openspec/`) for change proposals.
+**Status:** requirements are drafted and the high-level technical design is agreed (`docs/architecture.md`). The monorepo skeleton exists (`apps/api`, `apps/web`, `packages/api-client`) with a health endpoint wired end to end, but no product features yet.
 
 ## Where to start
 
@@ -48,6 +48,7 @@ A private budgeting app for one household: it pulls in the household's bank data
 
 ## Working rules
 
+- **Always work on a separate branch in a git worktree.** Never edit or commit on `main` or in the main checkout; create a branch per task and do the work in its own worktree.
 - **PRD first.** When a requirement changes, edit the PRD, then the issue or spec follows. Cite PRD IDs (`AUTH-16`, `J-05`) in specs, issues, commits and code comments where they explain why.
 - **IDs are never reused.** A removed requirement stays as a stub heading marked `· removed`.
 - **Respect `Depends on: SPIKE-01`.** Those requirements rest on unverified assumptions about Enable Banking data. Don't design or build them as written until the spike's findings are in.
@@ -56,12 +57,23 @@ A private budgeting app for one household: it pulls in the household's bank data
 - **No personal data in the repo** (the repo may become public): no real transactions, account numbers or bank exports. Spike samples are anonymised (Appendix B, Data handling).
 - **Ask before creating outside-facing things:** a GitHub remote, Project, issues, or emails to Enable Banking.
 
+## Commands
+
+Run from the repo root (Node 24, pnpm via `packageManager`):
+- `pnpm install`
+- `pnpm dev`: the api on port 3001 and the web app on 3000, which proxies `/api` to the api. Open `localhost:3000`.
+- `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm test:e2e`: Turborepo runs each across the workspaces, building the api, exporting `openapi.json` and generating `@budget/api-client` first where needed.
+- `pnpm lint` (oxlint, oxfmt check, dependency-cruiser boundary rules) and `pnpm format`.
+- Worker: `pnpm --filter @budget/api dev:worker`.
+- CLI (after `pnpm build`): `pnpm --filter @budget/api exec node dist/main.cli.js --help`. `pnpm --filter @budget/api openapi` writes `apps/api/openapi.json`.
+- Generating api code: `pnpm --filter @budget/api exec nest g <schematic> <name> --flat --no-spec`, then rename the file to the §5.3 suffixes (for example `health.controller.ts` becomes `health.http.controller.ts`).
+
 ## Technical design
 
 **`docs/architecture.md` is the source of truth for how the app is built.** Read it before designing or building anything; change it when a technical decision changes. If it disagrees with the PRD, the PRD wins.
 
 In short:
-- **Stack:** NestJS modular monolith with CQRS, MikroORM v7 on PostgreSQL, BullMQ on Redis; React with TanStack Start and shadcn/ui; Kubernetes on OCI, deployed with ArgoCD.
+- **Stack:** NestJS modular monolith with CQRS, MikroORM v7 on PostgreSQL, BullMQ on Redis; React SPA with TanStack Router and shadcn/ui; Kubernetes on OCI, deployed with ArgoCD.
 - **Patterns:** DDD aggregates only where the logic is hard; a framework-free domain; pure functions for ingestion and counting rules, tested with the PRD's worked examples.
 - **Reads** are computed on request, with no stored projections. Optimise only after a measurement shows the need.
 - **Background work:** events are queued after commit, and every consumer has a sweep that finds work it missed.

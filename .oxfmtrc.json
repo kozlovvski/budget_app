@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "ignorePatterns": [
+    "**/*.md",
+    ".claude/",
+    "pnpm-lock.yaml",
+    "**/generated/",
+    "**/routeTree.gen.ts"
+  ]
+}
