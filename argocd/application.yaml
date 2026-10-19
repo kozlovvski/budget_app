@@ -1,0 +1,21 @@
+# Applied once by hand (deploy/README.md). After that ArgoCD syncs deploy/ on every commit to main.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: budget
+  namespace: argo-cd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kozlovvski/budget_app.git
+    targetRevision: main
+    path: deploy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: budget
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

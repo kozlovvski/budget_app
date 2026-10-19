@@ -1,0 +1,27 @@
+# retain and Prune=false: deleting these files or the Application never drops the role or the data.
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: budget
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  cluster: { name: pg }
+  name: budget
+  login: true
+  passwordSecret: { name: budget-db } # created by hand, see deploy/README.md
+  # The cluster's max_connections (50) is shared with other apps.
+  connectionLimit: 20
+  databaseRoleReclaimPolicy: retain
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: budget
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  cluster: { name: pg }
+  name: budget
+  owner: budget
+  databaseReclaimPolicy: retain

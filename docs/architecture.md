@@ -42,7 +42,7 @@ The high-level technical design for the budget app. `docs/PRD.md` says *what* th
         └──────/*──────► web   nginx: the built static files, index.html as the fallback
                               │ commands and queries           │ after commit: enqueue IDs only
                               ▼                                ▼
-                 PostgreSQL (dedicated CNPG cluster)        Redis (BullMQ)
+                 PostgreSQL (shared CNPG cluster)           Redis (BullMQ)
                  schemas: core · audit                         │
                               ▲                                ▼
                               └────────────────────── worker   NestJS, same image as api
@@ -253,9 +253,9 @@ apps/api/src/
 
 ## 8. Data, encryption and backups
 
-- **A dedicated CloudNativePG cluster** (PostgreSQL 18), not shared with other apps. No role has `pg_read_all_data`; monitoring gets `pg_monitor` at most. Encryption at rest doesn't stop a role that can query, so access is limited instead.
+- **Its own database and role on the shared CloudNativePG cluster `pg`** (PostgreSQL 18, namespace `postgres`), declared in `deploy/postgres/`. A dedicated cluster needs another block volume, which the free tier has no room for (§12). `CONNECT` on `budget` is revoked from `PUBLIC`, so only its owner and superusers can connect. That also shuts out the platform's monitoring role, the one role on `pg` with `pg_read_all_data`; on `budget`, monitoring gets `pg_monitor` at most. Encryption at rest doesn't stop a role that can query, so access is limited instead.
 - **Encryption at rest:** OCI block-volume encryption, optionally with a customer-managed key in OCI Vault. Backups go to encrypted OCI Object Storage in another region.
-- **Backups (NFR-12)** use the CloudNativePG Barman Cloud plugin:
+- **Backups (NFR-12)** are not set up yet and must land before the first real import. They are configured on the shared `pg` cluster, so they cover its other databases too, and a point-in-time restore of `budget` alone means restoring into a scratch cluster and copying `budget` across. They use the CloudNativePG Barman Cloud plugin:
   - continuous WAL archiving plus a daily base backup, kept 30 days, so point-in-time recovery sits well inside the 24-hour recovery point;
   - "First history backed up" means the WAL containing the first import's commit has been archived (`pg_stat_archiver`). **Prove in the walking skeleton** that this is enough, or take an on-demand backup instead;
   - "Last successful backup" and the 48-hour warning come from the archiver and base-backup ages.
@@ -264,15 +264,16 @@ apps/api/src/
 
 ## 9. Deployment
 
-- **Kubernetes manifests** in `deploy/` with kustomize:
-  - `web`, `api` and `worker` Deployments;
-  - `web` is unprivileged nginx with the built files: `/assets/*` cached for a year as immutable and a real 404 when missing, every other path `no-cache` with `index.html` as the fallback, and the security headers, CSP included;
-  - one Ingress host, `/api` to `api` and everything else to `web`, with cert-manager TLS;
-  - the `budget-pg` CloudNativePG Cluster and its ScheduledBackup;
-  - a Redis StatefulSet with append-only persistence on a volume;
-  - NetworkPolicies: only the worker may reach Enable Banking and the email service; only `api` and `worker` may reach PostgreSQL and Redis; `web` accepts traffic from the ingress controller only.
-- **Delivery:** an ArgoCD Application watches `deploy/`. GitHub Actions builds images to ghcr.io and commits the new image tag back with `[skip ci]`. MikroORM migrations run as an ArgoCD PreSync hook Job.
-- **Secrets** (the key-encryption key, database credentials, the email key) are created outside the repo or committed only in encrypted form (SOPS or Sealed Secrets). Never in plain text.
+- **Kubernetes manifests** in `deploy/` with kustomize. `deploy/app/` (namespace `budget`) holds:
+  - `web`, `api` and `worker` Deployments. `api` and `worker` run one image (`apps/api/Dockerfile`), the worker with `node dist/main.worker.js`;
+  - `web` is unprivileged nginx with the built files (`apps/web/nginx.conf`): `/assets/*` cached for a year as immutable and a real 404 when missing, every other path `no-cache` with `index.html` as the fallback, and the security headers, CSP included;
+  - one Ingress host, `budget.apps.gwiazdeczkowo.top`: `/api` to `api` and everything else to `web`, with cert-manager TLS;
+  - Redis as one pod with a password and no volume. It holds only job IDs, so a lost queue costs nothing the sweeps don't find again (§3).
+
+  `deploy/postgres/` (namespace `postgres`) holds the `budget` database and role on the shared cluster (§8). Both are kept if their files or the Application are deleted (`retain`, `Prune=false`).
+- **NetworkPolicies wait for a CNI that enforces them.** The cluster runs flannel, which ignores them, so Redis and PostgreSQL rely on passwords for now. Add them before Enable Banking keys land: only the worker may reach Enable Banking and the email service; only `api` and `worker` may reach PostgreSQL and Redis; `web` accepts traffic from the ingress controller only.
+- **Delivery:** the ArgoCD Application `budget` (`argocd/application.yaml`) watches `deploy/`. On a push to `main`, once the `ci` job passes, GitHub Actions builds both images for arm64 (the nodes' architecture) to ghcr.io, tagged `sha-<commit>`. It then commits the new tag to `deploy/kustomization.yaml` with `[skip ci]`, pushing with a deploy key that the "Protect main" ruleset lets bypass its rules. MikroORM migrations run as an ArgoCD PreSync hook Job. One-time setup and rollback: `deploy/README.md`.
+- **Secrets** (the key-encryption key, database credentials, the email key) are created outside the repo or committed only in encrypted form (SOPS or Sealed Secrets). Never in plain text. For now they are created by hand (`deploy/README.md`).
 
 ## 10. Observability
 
@@ -310,6 +311,8 @@ NFR-03 allows a diagnostics service that receives scrubbed technical data only (
 | Event sourcing | Rejected. Conflicts with erasure (HH-08); explicit history tables cover what the PRD asks | — |
 | Drizzle | Considered for its `@nestjs/workflows` support; dropped with workflows. MikroORM's unit of work and version checks suit the aggregates | — |
 | TanStack Start, with SSR or in its SPA mode | Rejected for a static SPA on TanStack Router. The app sits behind sign-in, so SSR helps no search engine, and it would add a Node process to run and secure, cookie forwarding, hydration and CSP nonces. SPA mode still builds a server bundle for server functions the app won't use | NFR-07's first-visit target is missed after code splitting and caching |
+| A dedicated CloudNativePG cluster | Deferred. The free tier has no room for another block volume, so the app has its own database and role on the shared `pg` cluster, with `CONNECT` revoked from `PUBLIC` (§8) | Block storage frees up, or a neighbour on `pg` slows the app down |
+| Redis persistence on a volume | Rejected for now. Redis holds only job IDs and the sweeps find lost work, so a volume buys little and would take the last free block storage | A job appears whose loss no sweep can recover |
 | Microservices, Kafka or NATS, Nest sagas, presenter layers, PWA | Rejected as more than one household needs. PWA is out of scope in the PRD | — |
 
 ## 13. Open questions

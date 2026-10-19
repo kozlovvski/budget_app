@@ -26,3 +26,54 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm turbo run typecheck test:cov test:e2e build
+
+  # arm64 only: the cluster's nodes are arm64 (architecture §9). Pull requests build without pushing,
+  # so a broken Dockerfile shows up before merge.
+  images:
+    needs: ci
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        app: [web, api]
+    steps:
+      - uses: actions/checkout@v7
+      - id: tag
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - if: github.event_name == 'push'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          platforms: linux/arm64
+          push: ${{ github.event_name == 'push' }}
+          tags: ghcr.io/kozlovvski/budget-${{ matrix.app }}:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+  # Points deploy/ at the new images; ArgoCD syncs from there. The deploy key is a bypass actor on the
+  # "Protect main" ruleset, and [skip ci] stops the commit from starting another run (deploy/README.md).
+  deploy:
+    needs: images
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+      - run: |
+          tag="sha-${GITHUB_SHA::7}"
+          sed -i "s|newTag: .*|newTag: $tag|" deploy/kustomization.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "deploy: $tag [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main

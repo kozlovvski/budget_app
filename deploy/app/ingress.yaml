@@ -1,0 +1,31 @@
+# One origin (architecture §3): /api goes to api, everything else to the static web app.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: budget
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - budget.apps.gwiazdeczkowo.top
+      secretName: budget-tls
+  rules:
+    - host: budget.apps.gwiazdeczkowo.top
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80

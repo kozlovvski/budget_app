@@ -1,0 +1,7 @@
+# The app's database and role on the shared CloudNativePG cluster `pg` (architecture §8).
+# The platform repo owns the cluster itself.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: postgres
+resources:
+  - budget.yaml

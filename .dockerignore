@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+apps/api/openapi.json
+packages/api-client/src/generated
+.git
+.github
+.claude
+.prd-work
+docs
+openspec
+deploy
+argocd
