@@ -1,0 +1,11 @@
+# Synced by the ArgoCD Application in argocd/application.yaml. CI rewrites both newTag lines on every merge to main.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app
+  - postgres
+images:
+  - name: ghcr.io/kozlovvski/budget-web
+    newTag: sha-0000000
+  - name: ghcr.io/kozlovvski/budget-api
+    newTag: sha-0000000

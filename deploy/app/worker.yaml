@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: worker }
+  template:
+    metadata:
+      labels: { app: worker }
+    spec:
+      containers:
+        # The api image with the worker entry point. No probe: if it dies, Kubernetes restarts it.
+        - name: worker
+          image: ghcr.io/kozlovvski/budget-api
+          command: [node, dist/main.worker.js]
+          resources:
+            requests: { cpu: 20m, memory: 128Mi }
+            limits: { memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities: { drop: [ALL] }

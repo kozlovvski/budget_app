@@ -74,6 +74,7 @@ Run from the repo root (Node 24, pnpm via `packageManager`):
 - `pnpm lint` (oxlint, oxfmt check, dependency-cruiser boundary rules) and `pnpm format`.
 - Worker: `pnpm --filter @budget/api dev:worker`.
 - CLI (after `pnpm build`): `pnpm --filter @budget/api exec node dist/main.cli.js --help`. `pnpm --filter @budget/api openapi` writes `apps/api/openapi.json`.
+- Deploy: a merge to `main` deploys itself. CI builds the images, commits the tag bump, and ArgoCD syncs `deploy/` to `budget.apps.gwiazdeczkowo.top`. One-time setup and rollback: `deploy/README.md`.
 - Generating api code: `pnpm --filter @budget/api exec nest g <schematic> <name> --flat --no-spec`, then rename the file to the §5.3 suffixes (for example `health.controller.ts` becomes `health.http.controller.ts`).
 
 ## Technical design
