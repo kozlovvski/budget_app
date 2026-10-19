@@ -37,13 +37,8 @@ for ns in postgres budget; do
     --from-literal=username=budget --from-literal=password="$pw"
 done
 kubectl label secret budget-db -n postgres cnpg.io/reload=true  # CNPG picks up a rotated password
-pw=$(openssl rand -hex 24)
-kubectl create secret generic budget-redis -n budget --type=kubernetes.io/basic-auth \
-  --from-literal=username=budget --from-literal=password="$pw"
-echo "user budget on #$(printf %s "$pw" | sha256sum | cut -d' ' -f1) ~budget:* +@all -@dangerous +info"
+kubectl create secret generic budget-redis -n budget --from-literal=password="$(openssl rand -hex 24)"
 ```
-
-Redis is the platform's shared instance. Append the line printed last to its `redis-users` secret and reload, as the header of `platform/redis/redis.yaml` in the platform repo describes. The user can only touch keys starting `budget:` and can't run admin commands such as `FLUSHALL`.
 
 **3. First images.** Merge to `main` and wait for the `deploy` job. The cluster pulls without credentials, so both packages must be public. If `docker manifest inspect ghcr.io/kozlovvski/budget-web:<tag>` fails while signed out, open `https://github.com/users/kozlovvski/packages/container/budget-web/settings`, then "Change visibility" and choose "Public". Do the same for `budget-api`.
 

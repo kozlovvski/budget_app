@@ -5,4 +5,5 @@ resources:
   - web.yaml
   - api.yaml
   - worker.yaml
+  - redis.yaml
   - ingress.yaml
