@@ -130,15 +130,22 @@ async function fetchSession(
 function save(f: Fetch): string {
   mkdirSync(join(dir(), 'raw'), { recursive: true });
   const name = `${f.at.replace(/[:.]/g, '-')}_${f.bank.replace(/[^A-Za-z0-9]+/g, '-')}_${f.strategy}_${f.mode}.json`;
-  const file = join(dir(), 'raw', `${name}.gpg`);
+  const plain = join(dir(), 'raw', name);
+  const key = process.env.SPIKE_GPG_KEY;
+  // No SPIKE_GPG_KEY: plain files, by the user's choice until their gpg key exists.
+  if (!key) {
+    writeFileSync(plain, JSON.stringify(f));
+    return plain;
+  }
+  const file = `${plain}.gpg`;
   const gpg = spawnSync(
     'gpg',
-    ['--batch', '--yes', '--encrypt', '--recipient', env('SPIKE_GPG_KEY'), '--output', file],
+    ['--batch', '--yes', '--encrypt', '--recipient', key, '--output', file],
     { input: JSON.stringify(f) },
   );
   if (gpg.status === 0) return file;
   // Some history can't be fetched again, so keep it unencrypted rather than lose it.
-  writeFileSync(join(dir(), 'raw', name), JSON.stringify(f));
+  writeFileSync(plain, JSON.stringify(f));
   throw new Error(
     `gpg failed, kept ${name} UNENCRYPTED in ${dir()}/raw, encrypt it by hand: ${gpg.stderr}`,
   );
@@ -316,7 +323,6 @@ async function main() {
       break;
     }
     case 'connect': {
-      env('SPIKE_GPG_KEY');
       const f: Fetch = {
         at: now(),
         bank: opts.bank ?? '',
@@ -384,7 +390,6 @@ async function main() {
       break;
     }
     case 'fetch': {
-      env('SPIKE_GPG_KEY');
       const sessions = readState().filter((s) => !opts.session || s.id === opts.session);
       if (!sessions.length) throw new Error('No matching session: run connect first');
       for (const s of sessions) {
@@ -406,7 +411,7 @@ async function main() {
           : [
               ...Map.groupBy(
                 readdirSync(raw)
-                  .filter((n) => n.endsWith('.gpg'))
+                  .filter((n) => /\.json(\.gpg)?$/.test(n))
                   .sort(),
                 (n) => n.split('_').slice(1, 3).join('_'),
               ).values(),

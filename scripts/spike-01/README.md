@@ -20,7 +20,7 @@ Findings go in `docs/research/spike-01-enable-banking.md`, anonymised by the App
    EB_APP_ID=<application id>
    EB_KEY_PATH=/home/<you>/spike-01/prod.pem
    EB_REDIRECT_URL=http://localhost:5173/bank-callback
-   SPIKE_GPG_KEY=spike-01
+   SPIKE_GPG_KEY=spike-01                  # unset: fetches stay plain JSON, until the gpg key exists
    SPIKE_DIR=/home/<you>/spike-01          # sandbox: /home/<you>/spike-01-sandbox
    PSU_IP=<your public IP>                 # for --present; curl -s https://api.ipify.org
    ```
