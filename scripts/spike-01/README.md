@@ -39,7 +39,7 @@ Findings go in `docs/research/spike-01-enable-banking.md`, anonymised by the App
 | `eb fields <file>...` | Share of transactions with each field filled | item 6 |
 | `eb close --session <id>` | Ends the session from the tooling | 7, item 21 |
 
-Every request and its full response, errors included, is kept in `$SPIKE_DIR/raw/<time>_<bank>_<strategy>_<mode>.json.gpg`. `$SPIKE_DIR/state.json` holds only session IDs, approval times and Enable Banking's account UIDs. Read a fetch with `gpg -d <file> | jq`. Unit tests: `node --test scripts/spike-01/eb.test.ts`.
+Every request and its full response, errors included, is kept in `$SPIKE_DIR/raw/<time>_<bank>_<strategy>_<mode>.json.gpg` (`.json` while `SPIKE_GPG_KEY` is unset). `$SPIKE_DIR/state.json` holds only session IDs, approval times and Enable Banking's account UIDs. Read a fetch with `gpg -d <file> | jq`. Unit tests: `node --test scripts/spike-01/eb.test.ts`.
 
 ## Running the method
 
