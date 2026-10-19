@@ -4043,30 +4043,31 @@ Most of these are defaults the drafts already follow. Say only where you want so
 The PRD is the source of truth. An issue mirrors a requirement and links back to its PRD heading. When a requirement changes, the PRD changes first and the issue follows. IDs are never reused.
 
 **Structure**
-- **Repository:** this repo (no remote yet; creating one needs the household's confirmation).
+- **Repository:** `kozlovvski/budget_app`. The tracker is the project "Product development".
 - **Milestones:** `M0 Research`, `M1 Sign-in & bank data`, `M2 Categorise & budget`, `M3 Plan ahead`. Later items get no milestone.
 - **Project fields:**
-  - `Status`: Todo / In progress / Done
-  - `Priority`: Must / Should / Could
+  - `Status`: Backlog / Ready / In progress / In review / Done
+  - `Priority`: P0 / P1 / P2, set by hand to order the work. It is not the PRD's Must / Should / Could.
+  - `MoSCoW`: Must / Should / Could, copied from the requirement
   - `Area`: AUTH, HH, BANK, ACC, TXN, CAT, BUD, REC, FC, NW, INS, SET, NFR, SPIKE
-  - `Needs spike`: yes/no
-- **Labels:** `epic`, `requirement`, `spike`, `bug`, plus `area:<prefix>`.
+  - `Needs spike`: Yes / No
+- **Labels:** `epic`, `requirement`, `spike`, `needs-spike`, `journey-checklist`, `bug`, plus `area:<prefix>`.
 
 **Issues**
+- **Issues are thin.** The PRD keeps the acceptance criteria. An issue never copies them, so there is one place to change.
 - **One epic per area** (`[EPIC] CAT Categorisation`). The body is the area intro and a link to the section.
 - **One issue per requirement**, titled `CAT-03 Rules engine`. The body holds:
-  - the user story;
-  - the acceptance criteria as a task list;
+  - a one-line user story;
   - the "Depends on" line;
   - a link to the PRD heading.
 - Each requirement issue is a sub-issue of its area's epic.
+- **Dependencies** are GitHub "blocked by" links, one for each requirement ID named in a "Depends on" line. A reference to a whole area is text only. Every requirement tagged *Depends on: SPIKE-01* is also blocked by the SPIKE-01 issue and labelled `needs-spike`.
 - **NFRs** become issues under an `NFR` epic. Cross-cutting NFRs (accessibility, freshness labels, browser support) are also added to the Definition of Done.
 - **Journeys (J-NN)** become one checklist issue per milestone, used as its exit test.
 
-**Staging**, so issues don't go stale:
-1. Create the SPIKE-01 issue (Appendix B checklist and decision gates) and every M1 issue **not** tagged *Depends on: SPIKE-01*.
-2. After the SPIKE-01 findings note exists, rewrite the affected requirements in the PRD, then create their issues.
-3. Create M2 issues when M1 is about to close, and M3 issues when M2 is.
+**Status lives in the tracker only.** The PRD never records what is done. Work is done when a merged pull request that says `Closes #N` closes its issue. The next work is the open issues in the current milestone that no open issue blocks (`scripts/next-issues.sh`).
+
+**Creation.** All issues are created up front. Requirements that depend on SPIKE-01 stay blocked until the findings note exists. Then the affected requirements are rewritten in the PRD first and the issues follow.
 
 ## 12. Appendix
 

@@ -2,7 +2,7 @@
 
 A private budgeting app for one household: it pulls in the household's bank data, categorises spending, runs a flex budget and shows where the money goes.
 
-**Status:** requirements are drafted and the high-level technical design is agreed (`docs/architecture.md`). The monorepo skeleton exists (`apps/api`, `apps/web`, `packages/api-client`) with a health endpoint wired end to end, but no product features yet. The repo uses OpenSpec (`openspec/`) for change proposals.
+**Status:** requirements are drafted, tracked as GitHub issues in the "Product development" project, and the high-level technical design is agreed (`docs/architecture.md`). The monorepo skeleton exists (`apps/api`, `apps/web`, `packages/api-client`) with a health endpoint wired end to end, but no product features yet. The repo uses OpenSpec (`openspec/`) for change proposals.
 
 ## Where to start
 
@@ -54,6 +54,14 @@ A private budgeting app for one household: it pulls in the household's bank data
 - **PRD style:** British spelling, plain words, and exact UI wording in "quotes".
 - **No personal data in the repo** (the repo may become public): no real transactions, account numbers or bank exports. Spike samples are anonymised (Appendix B, Data handling).
 - **Ask before creating outside-facing things:** a GitHub remote, Project, issues, or emails to Enable Banking.
+
+## Finding work
+
+Status lives in GitHub, never in the PRD. An issue is a thin pointer: it links to the PRD heading, which holds the acceptance criteria.
+- **What's next:** `scripts/next-issues.sh [M1]` lists open issues that no open issue blocks, earliest milestone first. Pick by the project's `Priority`, then `MoSCoW`.
+- **Before starting:** read the issue and its "blocked by" links. Move it to *In progress* in the project. `needs-spike` issues stay blocked until SPIKE-01 is closed.
+- **When done:** the pull request says `Closes #N` and cites the PRD IDs. Don't record progress in the PRD or here.
+- **Structure:** each area has an `[EPIC]` issue with its requirements as sub-issues. See PRD §11.
 
 ## Commands
 
