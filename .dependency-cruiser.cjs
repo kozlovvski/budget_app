@@ -1,4 +1,4 @@
-// Boundary rules from architecture §5.1 and §4 (design: openspec/changes/setup-monorepo/design.md).
+// Boundary rules from architecture §5.1 and §4.
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
   forbidden: [
