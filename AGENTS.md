@@ -8,6 +8,7 @@ A private budgeting app for one household: it pulls in the household's bank data
 
 - **`docs/PRD.md` is the source of truth for business requirements.** Read the brief below first, then go to the PRD section you need. Don't read the whole PRD up front; it is long.
 - Find a requirement by its ID: `grep -n "^#### BUD-07" docs/PRD.md`. Area sections are `### 4.x`; NFRs are `### NFR-NN`.
+- UI work: read `docs/design.md` first.
 - Useful sections: §1 overview and principles, §3 user journeys, §4 functional requirements by area, §5 NFRs, §7 milestones, §8 out of scope, §10 decisions taken, Appendix B (SPIKE-01), Appendix C (glossary).
 
 ## Product brief
@@ -77,3 +78,7 @@ In short:
 - **Reads** are computed on request, with no stored projections. Optimise only after a measurement shows the need.
 - **Background work:** events are queued after commit, and every consumer has a sweep that finds work it missed.
 - **Conventions:** module layout and adapter naming in §5.3; open questions in §13; pending PRD changes in §14.
+
+## UI design
+
+**`docs/design.md` points to the reference design and holds the tokens and layout rules.** Read it before building or changing any screen, and match the design. If it disagrees with the PRD, the PRD wins; update the design and `docs/design.md` when a UI decision changes.
