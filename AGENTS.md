@@ -2,7 +2,7 @@
 
 A private budgeting app for one household: it pulls in the household's bank data, categorises spending, runs a flex budget and shows where the money goes.
 
-**Status:** requirements are drafted and the high-level technical design is agreed (`docs/architecture.md`). The monorepo skeleton exists (`apps/api`, `apps/web`, `packages/api-client`) with a health endpoint wired end to end, but no product features yet. The repo uses OpenSpec (`openspec/`) for change proposals.
+**Status:** requirements are drafted and the high-level technical design is agreed (`docs/architecture.md`). The monorepo skeleton exists (`apps/api`, `apps/web`, `packages/api-client`) with a health endpoint wired end to end, but no product features yet.
 
 ## Where to start
 
@@ -47,6 +47,7 @@ A private budgeting app for one household: it pulls in the household's bank data
 
 ## Working rules
 
+- **Always work on a separate branch in a git worktree.** Never edit or commit on `main` or in the main checkout; create a branch per task and do the work in its own worktree.
 - **PRD first.** When a requirement changes, edit the PRD, then the issue or spec follows. Cite PRD IDs (`AUTH-16`, `J-05`) in specs, issues, commits and code comments where they explain why.
 - **IDs are never reused.** A removed requirement stays as a stub heading marked `· removed`.
 - **Respect `Depends on: SPIKE-01`.** Those requirements rest on unverified assumptions about Enable Banking data. Don't design or build them as written until the spike's findings are in.
