@@ -284,6 +284,7 @@ async function main() {
     allowPositionals: true,
     options: {
       bank: { type: 'string' },
+      code: { type: 'string' },
       country: { type: 'string', default: 'PL' },
       days: { type: 'string', default: '180' },
       session: { type: 'string' },
@@ -316,41 +317,61 @@ async function main() {
     }
     case 'connect': {
       env('SPIKE_GPG_KEY');
-      if (!opts.bank) throw new Error('connect needs --bank (exact name from aspsps)');
       const f: Fetch = {
         at: now(),
-        bank: opts.bank,
+        bank: opts.bank ?? '',
         strategy: 'longest',
         mode: 'connect',
         calls: [],
       };
-      // Listen before starting the consent, so a busy port fails before anyone approves at the bank.
-      const redirect = waitForCode(new URL(env('EB_REDIRECT_URL')));
-      const auth = await api(f.calls, 'POST', '/auth', {
-        body: {
-          access: { valid_until: new Date(Date.now() + Number(opts.days) * 864e5).toISOString() },
-          aspsp: { name: opts.bank, country: opts.country },
-          state: randomUUID(),
-          redirect_url: env('EB_REDIRECT_URL'),
-          psu_type: 'personal',
-        },
-      });
-      const url = (auth.body as { url?: string }).url;
-      if (!url) throw new Error(`No authorisation URL: ${JSON.stringify(auth.body)}`);
-      console.log(
-        `Open this and approve at the bank:\n${url}\n\nWaiting for the redirect to ${env('EB_REDIRECT_URL')}`,
-      );
-      const code = await redirect;
+      let code = opts.code?.startsWith('http')
+        ? new URL(opts.code).searchParams.get('code')
+        : opts.code;
+      if (opts.code && !code) throw new Error(`No code in ${opts.code}`);
+      if (!code) {
+        if (!opts.bank) throw new Error('connect needs --bank (exact name from aspsps)');
+        const redirect = new URL(env('EB_REDIRECT_URL'));
+        // Only a localhost redirect is caught here, and listening first makes a busy port fail
+        // before anyone approves at the bank. A production one (https, real domain) is pasted back.
+        const caught = redirect.hostname === 'localhost' ? waitForCode(redirect) : undefined;
+        const auth = await api(f.calls, 'POST', '/auth', {
+          body: {
+            access: { valid_until: new Date(Date.now() + Number(opts.days) * 864e5).toISOString() },
+            aspsp: { name: opts.bank, country: opts.country },
+            state: randomUUID(),
+            redirect_url: redirect.href,
+            psu_type: 'personal',
+          },
+        });
+        const url = (auth.body as { url?: string }).url;
+        if (!url) throw new Error(`No authorisation URL: ${JSON.stringify(auth.body)}`);
+        if (!caught) {
+          // shortcut: this /auth call isn't kept, as its response is only the URL; keep it if a gate needs it.
+          console.log(
+            `Open this and approve at the bank:\n${url}\n\nThe page it ends on won't load. Copy its address at once (the code expires) and run:\neb connect --code '<address>'`,
+          );
+          break;
+        }
+        console.log(
+          `Open this and approve at the bank:\n${url}\n\nWaiting for the redirect to ${redirect.href}`,
+        );
+        code = await caught;
+      }
       const created = await api(f.calls, 'POST', '/sessions', { body: { code } });
-      const body = created.body as { session_id?: string; accounts?: { uid: string }[] };
+      const body = created.body as {
+        session_id?: string;
+        accounts?: { uid: string }[];
+        aspsp?: { name: string; country: string };
+      };
+      f.bank = body.aspsp?.name ?? f.bank;
       if (!body.session_id) {
         report(f, save(f));
         throw new Error('No session was created');
       }
       const s: Session = {
         id: body.session_id,
-        bank: opts.bank,
-        country: opts.country,
+        bank: f.bank,
+        country: body.aspsp?.country ?? opts.country,
         approvedAt: created.at,
         accounts: body.accounts?.map((a) => a.uid) ?? [],
       };
