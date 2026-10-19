@@ -27,6 +27,7 @@ The high-level technical design for the budget app. `docs/PRD.md` says *what* th
 | Background work | **BullMQ on Redis**. Events are queued after commit; every consumer also has a **sweep** that finds work it missed |
 | Read side | **Computed on request** from the write tables. No stored projections. Slow queries are optimised when a measurement shows the need |
 | Clients | The application layer is the API. Thin adapters per consumer: REST with OpenAPI for the web app now, MCP later. Queries take **named includes**. No GraphQL |
+| Bank data | **Enable Banking** in restricted mode, behind the `BankDataProvider` port so the provider can be replaced (§5.9) |
 | Encryption (NFR-02) | Encrypted volumes and backups, plus app-level envelope encryption for Enable Banking secrets |
 | Hosting (NFR-03, PRD §10 question 6) | Oracle Cloud Infrastructure, region eu-frankfurt-1: the developer's Kubernetes cluster, deployed with ArgoCD |
 | Tenancy | One household. The PRD non-goal of multiple households stands; the data model only avoids closing that door |
@@ -219,11 +220,14 @@ apps/api/src/
 
 ### 5.9 Bank data and ingestion
 
-- **One port, two adapters.** `BankDataProvider` has an Enable Banking adapter, which signs an RS256 JWT with the key of the member who holds the connection (BANK-16), and a CSV adapter. Both produce the same `IncomingTransaction` shape, so there is one ingestion path.
-- **Raw data is kept** per transaction version as JSONB (TXN-03).
+- **One port, two adapters, and the provider can be replaced.** Enable Banking is the bank-data provider (SPIKE-01), and the app is built so that another can take its place. `BankDataProvider` is the only way in: start a consent and finish it from the bank's redirect, list accounts, read balances and transactions from a date, and end access. Failures come back as the PRD's connection statuses (BANK-10). It has an Enable Banking adapter, which signs an RS256 JWT with the key of the member who holds the connection (BANK-16), and a CSV adapter. Both produce the same `IncomingAccount` and `IncomingTransaction` shapes, so there is one ingestion path.
+- **Provider details stay in the adapter.** Session IDs, account UIDs, continuation keys, fetch strategies ("longest", "default") and what a member's registration holds belong to the adapter. The connection stores them as opaque references and an encrypted credential. The domain sees the bank, the full account identifier (BANK-15) and the bank's own transaction identifier when there is one. A dependency-cruiser rule keeps provider code inside `banking/infrastructure`.
+- **Mapping is per provider and bank.** What SPIKE-01 found for Erste through Enable Banking (booked only, booking date only, the transaction type as the first line of the description, a credit card as its own account) is that adapter's mapping, tested with the spike's anonymised samples.
+- **Raw data is kept** per transaction version as JSONB, tagged with its provider (TXN-03), so it can still be read after a switch.
 - **The ingestion engine** is pure functions. The PRD's must-behave examples are its test suite.
-- **Bank profiles are configuration.** What SPIKE-01 is still to find out (Appendix B gates G5–G11, G13 and G14) lives as per-bank settings. The conservative defaults in Appendix B ship first.
-- **Secrets.** Enable Banking private keys are encrypted with AES-256-GCM. Each data key is wrapped by a key-encryption key held in a Kubernetes Secret, outside the database and its backups, so a backup alone can't fetch bank data (NFR-02).
+- **Bank profiles are configuration.** What SPIKE-01 is still to find out (Appendix B gates G5–G11, G13 and G14) lives as settings per provider and bank, since another provider may deliver the same bank differently. The conservative defaults in Appendix B ship first.
+- **A switch is a reconnection.** Moving to another provider means each member connects their banks again through the new adapter. BANK-15's account matching and TXN-10's rules for overlapping sources carry history across, as for a joint account seen from two logins (§13).
+- **Secrets.** Provider credentials (for Enable Banking, each member's private key) are encrypted with AES-256-GCM. Each data key is wrapped by a key-encryption key held in a Kubernetes Secret, outside the database and its backups, so a backup alone can't fetch bank data (NFR-02).
 
 ### 5.10 Categorisation and the future ML service
 
@@ -310,6 +314,7 @@ NFR-03 allows a diagnostics service that receives scrubbed technical data only (
 | Event sourcing | Rejected. Conflicts with erasure (HH-08); explicit history tables cover what the PRD asks | — |
 | Drizzle | Considered for its `@nestjs/workflows` support; dropped with workflows. MikroORM's unit of work and version checks suit the aggregates | — |
 | TanStack Start, with SSR or in its SPA mode | Rejected for a static SPA on TanStack Router. The app sits behind sign-in, so SSR helps no search engine, and it would add a Node process to run and secure, cookie forwarding, hydration and CSP nonces. SPA mode still builds a server bundle for server functions the app won't use | NFR-07's first-visit target is missed after code splitting and caching |
+| Bank-data provider | Enable Banking, kept after SPIKE-01 despite its limits (no pending at Erste, restricted mode's per-member setup). Built behind a port so it can be swapped without touching the domain (§5.9) | Its terms, prices or data get worse, or a bank the household needs isn't served |
 | Microservices, Kafka or NATS, Nest sagas, presenter layers, PWA | Rejected as more than one household needs. PWA is out of scope in the PRD | — |
 
 ## 13. Open questions
@@ -320,6 +325,7 @@ None of these block M1's walking skeleton.
 - **Exchange-rate source** (PRD open question on ECB or NBP). Fetching public rates sends no household data, so it probably needs no NFR-03 change. Confirm when the source is chosen.
 - **Faro's session tracking.** If it can't be switched off completely, send errors only or drop Faro.
 - **Email provider:** OCI Email Delivery or another EU provider.
+- **Switching bank-data provider**, decided when a switch is planned. If the new provider's transaction identifiers or descriptions differ from Enable Banking's, the overlap between old and new connections becomes possible duplicates (TXN-10). One option is to start the new connection's import after the old one's last complete day. The PRD's onboarding (BANK-16, J-01, J-02) is written for Enable Banking's restricted mode and would change with it.
 - **Event publisher edge cases, to test in the walking skeleton:** whether a bare `em.flush()` outside `em.transactional()` fires the transaction hooks, and whether nested transactions (savepoints) fire `afterTransactionCommit` before the outer commit. The publisher must send only on the outermost commit.
 
 ## 14. PRD changes this design needs

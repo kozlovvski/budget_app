@@ -8,6 +8,8 @@ Draft. A cell reads "—" until it has evidence, or "not available" with the rea
 
 ## 1. Summary
 
+**Decision: go with Enable Banking.** Despite the limits below, the developer keeps Enable Banking as the bank-data provider. The app is built so the provider can be replaced later (`docs/architecture.md` §5.9). The gates still need deciding.
+
 | Gate | Proposed decision | Evidence |
 |---|---|---|
 | G1 | Not triggered: no limit assumed (default) | 5 Erste accounts linked and returned without refusal |
